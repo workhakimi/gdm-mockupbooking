@@ -173,6 +173,7 @@
                         <!-- SKU search (not yet selected or changing) -->
                         <div v-else class="mb-sku-search-wrap">
                             <input
+                                :ref="el => { if (el) skuInputRefs[line._uid] = el; }"
                                 type="text"
                                 class="mb-input mb-sku-input"
                                 placeholder="Search SKU, model, or color..."
@@ -442,6 +443,7 @@ export default {
             submitPhase: 'idle',
             originalSnapshot: null,
             toast: { visible: false, message: '', type: 'info' },
+            skuInputRefs: {},
             _toastTimer: null,
             _initDone: false,
         };
@@ -643,10 +645,17 @@ export default {
 
         /* ── SKU line items ── */
         addLine() {
-            this.form.lineItems.push(createEmptyLine());
+            const line = createEmptyLine();
+            this.form.lineItems.push(line);
+            this.$nextTick(() => {
+                const input = this.skuInputRefs[line._uid];
+                if (input) { input.focus(); input.select(); }
+            });
         },
         removeLine(idx) {
+            const uid = this.form.lineItems[idx]?._uid;
             this.form.lineItems.splice(idx, 1);
+            if (uid) delete this.skuInputRefs[uid];
         },
         reopenSkuSearch(idx) {
             const line = this.form.lineItems[idx];
@@ -654,6 +663,10 @@ export default {
             line._resolved = null;
             line._searchQuery = '';
             line._dropdownOpen = true;
+            this.$nextTick(() => {
+                const input = this.skuInputRefs[line._uid];
+                if (input) { input.focus(); input.select(); }
+            });
         },
         selectSku(idx, item) {
             if (this.isSkuAlreadyAdded(item.sku, this.form.lineItems[idx]._uid)) {

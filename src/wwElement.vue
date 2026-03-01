@@ -189,7 +189,6 @@
                                         v-for="item in filteredInventory(line._searchQuery)"
                                         :key="item.sku"
                                         class="mb-dropdown-item mb-dropdown-item--sku"
-                                        :class="{ 'is-duplicate': isSkuAlreadyAdded(item.sku, line._uid) }"
                                         @mousedown.prevent="selectSku(idx, item)"
                                     >
                                         <img v-if="item.imagelink" :src="item.imagelink" :alt="item.sku" class="mb-dd-img" />
@@ -199,7 +198,6 @@
                                             <span class="mb-dd-variant">{{ item.color }} · {{ item.size }}</span>
                                         </div>
                                         <span class="mb-dd-sku-code">{{ item.sku }}</span>
-                                        <span v-if="isSkuAlreadyAdded(item.sku, line._uid)" class="mb-dd-dup-badge">Added</span>
                                     </div>
                                 </div>
                             </transition>
@@ -669,10 +667,6 @@ export default {
             });
         },
         selectSku(idx, item) {
-            if (this.isSkuAlreadyAdded(item.sku, this.form.lineItems[idx]._uid)) {
-                this.showToast(`${item.sku} is already in the list`, 'warning');
-                return;
-            }
             const line = this.form.lineItems[idx];
             line.sku = item.sku;
             line._resolved = item;
@@ -695,10 +689,6 @@ export default {
                 return hay.includes(q);
             }).slice(0, 40);
         },
-        isSkuAlreadyAdded(sku, excludeUid) {
-            return this.form.lineItems.some(l => l.sku === sku && l._uid !== excludeUid);
-        },
-
         /* ── Review & Submit ── */
         openReview() {
             this.touched = { title: true, pic: true, client: true, lines: true, deadline: true };
@@ -1006,17 +996,13 @@ $transition: 0.15s ease;
 
 /* SKU dropdown */
 .mb-dropdown--sku { max-height: 280px; }
-.mb-dropdown-item--sku {
-    gap: 10px;
-    &.is-duplicate { opacity: 0.45; cursor: not-allowed; }
-}
+.mb-dropdown-item--sku { gap: 10px; }
 .mb-dd-img { width: 36px; height: 36px; object-fit: cover; border-radius: $radius-xs; border: 1px solid $gray-200; }
 .mb-dd-img-ph { width: 36px; height: 36px; border-radius: $radius-xs; background: $gray-100; }
 .mb-dd-details { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .mb-dd-model { font-weight: 500; font-size: 12px; color: var(--mb-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mb-dd-variant { font-size: 11px; color: var(--mb-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mb-dd-sku-code { font-size: 11px; color: var(--mb-muted); font-family: monospace; white-space: nowrap; }
-.mb-dd-dup-badge { font-size: 9px; color: $amber-500; font-weight: 700; text-transform: uppercase; }
 
 .mb-select { appearance: none; cursor: pointer; padding-right: 28px; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
 

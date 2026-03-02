@@ -45,14 +45,16 @@
                             <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
                             <div v-else class="mb-pv-line-img-ph"></div>
                             <div class="mb-pv-line-main">
-                                <div class="mb-pv-line-info">
-                                    <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
-                                    <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
-                                    <span class="mb-pv-line-sku">{{ item.sku }}</span>
-                                </div>
-                                <div class="mb-pv-line-meta">
-                                    <span class="mb-pv-line-qty">Qty: {{ item.quantity }}</span>
-                                    <span class="mb-pv-line-cust">{{ item.customization_type || 'None' }}</span>
+                                <div class="mb-pv-line-top">
+                                    <div class="mb-pv-line-info">
+                                        <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
+                                        <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
+                                        <span class="mb-pv-line-sku">{{ item.sku }}</span>
+                                    </div>
+                                    <div class="mb-pv-line-meta">
+                                        <span class="mb-pv-line-qty">Qty: {{ item.quantity }}</span>
+                                        <span class="mb-pv-line-cust">{{ item.customization_type || 'None' }}</span>
+                                    </div>
                                 </div>
                                 <div v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</div>
                             </div>
@@ -71,7 +73,10 @@
                     <span class="mb-pv-label">History ({{ previewHistory.length }})</span>
                     <div class="mb-pv-history">
                         <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-history-item">
-                            <span class="mb-pv-history-action">{{ entry.action }}</span>
+                            <div class="mb-pv-history-head">
+                                <span class="mb-pv-history-action">{{ entry.action }}</span>
+                                <span v-if="entry.timestamp" class="mb-pv-history-time">{{ formatHistoryTimestamp(entry.timestamp) }}</span>
+                            </div>
                             <span class="mb-pv-history-desc">{{ entry.description }}</span>
                         </div>
                     </div>
@@ -674,6 +679,23 @@ export default {
             this.originalSnapshot = JSON.stringify(this.formSnapshot());
         },
 
+        formatHistoryTimestamp(ts) {
+            if (!ts) return '';
+            try {
+                const d = new Date(ts);
+                const s = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Kuala_Lumpur',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                }).format(d);
+                return s.replace(/\b(am|pm)\b/gi, m => m.toUpperCase());
+            } catch { return ts; }
+        },
+
         /* ── Edit mode ── */
         enterEditMode() {
             this.loadEditingData(this.editingData);
@@ -1053,13 +1075,17 @@ $transition: 0.15s ease;
 .mb-pv-line-img { width: 48px; height: 48px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
 .mb-pv-line-img-ph { width: 48px; height: 48px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
 .mb-pv-line-main { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mb-pv-line-top {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+}
 .mb-pv-line-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mb-pv-line-model { font-weight: 600; font-size: 13px; color: var(--mb-text); }
 .mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
 .mb-pv-line-sku { font-size: 10px; color: var(--mb-muted); font-family: monospace; }
 .mb-pv-line-meta {
-    display: flex; align-items: center; gap: 12px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
     font-size: 12px; font-weight: 600; color: var(--mb-text);
+    flex-shrink: 0;
 }
 .mb-pv-line-qty { font-weight: 700; color: var(--mb-text); }
 .mb-pv-line-cust { font-weight: 700; color: var(--mb-text); }
@@ -1067,10 +1093,11 @@ $transition: 0.15s ease;
     font-size: 12px; color: $gray-600; line-height: 1.45;
     padding-top: 8px; border-top: 1px solid $gray-100;
     word-break: break-word; white-space: pre-wrap;
+    text-align: right;
 }
 .mb-pv-history { display: flex; flex-direction: column; gap: 6px; }
 .mb-pv-history-item {
-    display: flex; align-items: flex-start; gap: 10px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
     padding: 10px 12px;
     background: var(--mb-form-bg);
     border: 1px solid var(--mb-border);
@@ -1078,11 +1105,18 @@ $transition: 0.15s ease;
     font-size: 12px;
     border-left: 3px solid var(--mb-accent);
 }
+.mb-pv-history-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%;
+}
 .mb-pv-history-action {
     font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
-    color: var(--mb-accent); white-space: nowrap; padding-top: 1px; flex-shrink: 0;
+    color: var(--mb-accent); white-space: nowrap; flex-shrink: 0;
 }
-.mb-pv-history-desc { color: var(--mb-text); word-break: break-word; line-height: 1.4; }
+.mb-pv-history-time {
+    font-size: 11px; color: var(--mb-muted); white-space: nowrap; flex-shrink: 0;
+}
+.mb-pv-history-desc { color: var(--mb-text); word-break: break-word; line-height: 1.4; width: 100%; }
 
 /* ═══════════ BODY ═══════════ */
 .mb-body {

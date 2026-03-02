@@ -25,6 +25,7 @@
                 </div>
             </div>
             <div class="mb-preview-body">
+                <div class="mb-pv-row"><span class="mb-pv-label">Title</span><span class="mb-pv-value mb-pv-title">{{ editingData.title || '-' }}</span></div>
                 <div class="mb-pv-row"><span class="mb-pv-label">Client</span><span class="mb-pv-value">{{ editingData.client || '-' }}</span></div>
                 <div class="mb-pv-row"><span class="mb-pv-label">Requestor</span><span class="mb-pv-value">{{ previewTeammateName }}</span></div>
                 <div class="mb-pv-row"><span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-pv-value mb-pv-link">{{ editingData.mockup_folder || '-' }}</span></div>
@@ -43,16 +44,18 @@
                         <div v-for="(item, i) in previewDetails" :key="i" class="mb-pv-line">
                             <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
                             <div v-else class="mb-pv-line-img-ph"></div>
-                            <div class="mb-pv-line-info">
-                                <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
-                                <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
-                                <span class="mb-pv-line-sku">{{ item.sku }}</span>
+                            <div class="mb-pv-line-main">
+                                <div class="mb-pv-line-info">
+                                    <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
+                                    <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
+                                    <span class="mb-pv-line-sku">{{ item.sku }}</span>
+                                </div>
+                                <div class="mb-pv-line-meta">
+                                    <span class="mb-pv-line-qty">Qty: {{ item.quantity }}</span>
+                                    <span class="mb-pv-line-cust">{{ item.customization_type || 'None' }}</span>
+                                </div>
+                                <div v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</div>
                             </div>
-                            <div class="mb-pv-line-meta">
-                                <span>Qty: {{ item.quantity }}</span>
-                                <span>{{ item.customization_type || 'None' }}</span>
-                            </div>
-                            <span v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</span>
                         </div>
                     </div>
                 </div>
@@ -578,7 +581,16 @@ export default {
             if (!this.editingData?.user_deadline) return '-';
             try {
                 const d = new Date(this.editingData.user_deadline);
-                return d.toLocaleString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                const s = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: 'Asia/Kuala_Lumpur',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                }).format(d);
+                return s.replace(/\b(am|pm)\b/gi, m => m.toUpperCase());
             } catch { return this.editingData.user_deadline; }
         },
         previewIsUrgent() {
@@ -1020,6 +1032,7 @@ $transition: 0.15s ease;
     min-width: 120px; padding-top: 2px; flex-shrink: 0;
 }
 .mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; line-height: 1.45; }
+.mb-pv-title { font-weight: 600; font-size: 14px; }
 .mb-pv-link { color: var(--mb-accent); word-break: break-all; text-decoration: none; &:hover { text-decoration: underline; } }
 .mb-pv-section {
     display: flex; flex-direction: column; gap: 10px;
@@ -1028,8 +1041,8 @@ $transition: 0.15s ease;
 .mb-pv-section .mb-pv-label { margin-bottom: 2px; padding: 0; border: none; }
 .mb-pv-lines { display: flex; flex-direction: column; gap: 8px; }
 .mb-pv-line {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px;
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 14px;
     background: var(--mb-form-bg);
     border: 1px solid var(--mb-border);
     border-radius: $radius-sm;
@@ -1037,14 +1050,24 @@ $transition: 0.15s ease;
     transition: border-color $transition, box-shadow $transition;
     &:hover { border-color: $gray-300; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); }
 }
-.mb-pv-line-img { width: 44px; height: 44px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
-.mb-pv-line-img-ph { width: 44px; height: 44px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
-.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mb-pv-line-img { width: 48px; height: 48px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
+.mb-pv-line-img-ph { width: 48px; height: 48px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
+.mb-pv-line-main { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mb-pv-line-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mb-pv-line-model { font-weight: 600; font-size: 13px; color: var(--mb-text); }
 .mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
 .mb-pv-line-sku { font-size: 10px; color: var(--mb-muted); font-family: monospace; }
-.mb-pv-line-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--mb-muted); text-align: right; white-space: nowrap; }
-.mb-pv-line-remarks { font-size: 11px; color: $gray-500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.mb-pv-line-meta {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; font-weight: 600; color: var(--mb-text);
+}
+.mb-pv-line-qty { font-weight: 700; color: var(--mb-text); }
+.mb-pv-line-cust { font-weight: 700; color: var(--mb-text); }
+.mb-pv-line-remarks {
+    font-size: 12px; color: $gray-600; line-height: 1.45;
+    padding-top: 8px; border-top: 1px solid $gray-100;
+    word-break: break-word; white-space: pre-wrap;
+}
 .mb-pv-history { display: flex; flex-direction: column; gap: 6px; }
 .mb-pv-history-item {
     display: flex; align-items: flex-start; gap: 10px;

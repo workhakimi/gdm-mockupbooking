@@ -12,12 +12,10 @@
 
         <!-- ═══════════ PREVIEW MODE ═══════════ -->
         <template v-if="viewMode === 'preview' && editingData">
-            <!-- Preview header -->
-            <div class="mb-header mb-header--preview">
+            <div class="mb-header">
                 <div class="mb-header-left">
                     <h2 class="mb-title">{{ editingData.title || 'Mockup Request' }}</h2>
                     <span class="mb-type-badge">{{ editingData.type || 'mockup' }}</span>
-                    <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
                 </div>
                 <div class="mb-header-right">
                     <button type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
@@ -26,85 +24,52 @@
                     </button>
                 </div>
             </div>
-
             <div class="mb-preview-body">
-                <!-- Details card -->
-                <div class="mb-pv-card">
-                    <div class="mb-pv-card-header">
-                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <span class="mb-pv-card-title">Details</span>
-                    </div>
-                    <div class="mb-pv-grid">
-                        <div class="mb-pv-cell">
-                            <span class="mb-pv-label">Client</span>
-                            <span class="mb-pv-value">{{ editingData.client || '-' }}</span>
-                        </div>
-                        <div class="mb-pv-cell">
-                            <span class="mb-pv-label">Requestor</span>
-                            <span class="mb-pv-value">{{ previewTeammateName }}</span>
-                        </div>
-                        <div class="mb-pv-cell">
-                            <span class="mb-pv-label">Deadline</span>
-                            <span class="mb-pv-value">{{ previewDeadline }}</span>
-                        </div>
-                        <div class="mb-pv-cell" v-if="editingData.mockup_folder">
-                            <span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span>
-                            <a :href="editingData.mockup_folder" target="_blank" rel="noopener" class="mb-pv-value mb-pv-link">{{ previewFolderDisplay }}</a>
-                        </div>
-                    </div>
+                <div class="mb-pv-row"><span class="mb-pv-label">Client</span><span class="mb-pv-value">{{ editingData.client || '-' }}</span></div>
+                <div class="mb-pv-row"><span class="mb-pv-label">Requestor</span><span class="mb-pv-value">{{ previewTeammateName }}</span></div>
+                <div class="mb-pv-row"><span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-pv-value mb-pv-link">{{ editingData.mockup_folder || '-' }}</span></div>
+                <div class="mb-pv-row">
+                    <span class="mb-pv-label">Deadline</span>
+                    <span class="mb-pv-value">
+                        {{ previewDeadline }}
+                        <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
+                    </span>
                 </div>
 
-                <!-- Products card (mockup only) -->
-                <div v-if="editingData.type === 'mockup' && previewDetails.length" class="mb-pv-card">
-                    <div class="mb-pv-card-header">
-                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                        <span class="mb-pv-card-title">Products</span>
-                        <span class="mb-pv-card-count">{{ previewDetails.length }}</span>
-                    </div>
+                <!-- Products (mockup only) -->
+                <div v-if="editingData.type === 'mockup' && previewDetails.length" class="mb-pv-section">
+                    <span class="mb-pv-label">Products ({{ previewDetails.length }})</span>
                     <div class="mb-pv-lines">
                         <div v-for="(item, i) in previewDetails" :key="i" class="mb-pv-line">
-                            <span class="mb-pv-line-idx">{{ i + 1 }}</span>
                             <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
-                            <div v-else class="mb-pv-line-img-ph">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            </div>
+                            <div v-else class="mb-pv-line-img-ph"></div>
                             <div class="mb-pv-line-info">
                                 <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
                                 <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
+                                <span class="mb-pv-line-sku">{{ item.sku }}</span>
                             </div>
-                            <div class="mb-pv-line-tags">
-                                <span class="mb-pv-tag">{{ item.sku }}</span>
-                                <span class="mb-pv-tag mb-pv-tag--qty">x{{ item.quantity }}</span>
-                                <span v-if="item.customization_type && item.customization_type !== 'None'" class="mb-pv-tag mb-pv-tag--cust">{{ item.customization_type }}</span>
+                            <div class="mb-pv-line-meta">
+                                <span>Qty: {{ item.quantity }}</span>
+                                <span>{{ item.customization_type || 'None' }}</span>
                             </div>
-                            <div v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</div>
+                            <span v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Remarks card (custom type) -->
-                <div v-if="editingData.type === 'custom' && editingData.additional_remarks" class="mb-pv-card">
-                    <div class="mb-pv-card-header">
-                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        <span class="mb-pv-card-title">Request Remarks</span>
-                    </div>
-                    <p class="mb-pv-remarks-text">{{ editingData.additional_remarks }}</p>
+                <!-- Remarks (custom) -->
+                <div v-if="editingData.type === 'custom' && editingData.additional_remarks" class="mb-pv-row">
+                    <span class="mb-pv-label">Request Remarks</span>
+                    <span class="mb-pv-value">{{ editingData.additional_remarks }}</span>
                 </div>
 
-                <!-- History card -->
-                <div v-if="previewHistory.length" class="mb-pv-card mb-pv-card--history">
-                    <div class="mb-pv-card-header">
-                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span class="mb-pv-card-title">History</span>
-                        <span class="mb-pv-card-count">{{ previewHistory.length }}</span>
-                    </div>
-                    <div class="mb-pv-timeline">
-                        <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-tl-item">
-                            <div class="mb-pv-tl-dot"></div>
-                            <div class="mb-pv-tl-content">
-                                <span class="mb-pv-tl-action">{{ entry.action?.replace(/_/g, ' ') }}</span>
-                                <span class="mb-pv-tl-desc">{{ entry.description }}</span>
-                            </div>
+                <!-- History -->
+                <div v-if="previewHistory.length" class="mb-pv-section">
+                    <span class="mb-pv-label">History ({{ previewHistory.length }})</span>
+                    <div class="mb-pv-history">
+                        <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-history-item">
+                            <span class="mb-pv-history-action">{{ entry.action }}</span>
+                            <span class="mb-pv-history-desc">{{ entry.description }}</span>
                         </div>
                     </div>
                 </div>
@@ -632,10 +597,6 @@ export default {
         previewHistory() {
             return Array.isArray(this.editingData?.history) ? this.editingData.history : [];
         },
-        previewFolderDisplay() {
-            const url = this.editingData?.mockup_folder || '';
-            try { return new URL(url).hostname + '/...'; } catch { return url.length > 40 ? url.slice(0, 40) + '...' : url; }
-        },
     },
     watch: {
         editingData: {
@@ -1005,6 +966,7 @@ $transition: 0.15s ease;
     background: var(--mb-form-bg);
     border: 1px solid var(--mb-border);
     border-radius: var(--mb-radius);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1017,145 +979,94 @@ $transition: 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
+    padding: 18px 22px;
     border-bottom: 1px solid var(--mb-border);
     background: var(--mb-card-bg);
 }
-.mb-header-left { display: flex; align-items: center; gap: 10px; }
-.mb-title { font-size: 15px; font-weight: 600; margin: 0; color: var(--mb-text); }
+.mb-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mb-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--mb-text); letter-spacing: -0.01em; }
 .mb-edit-badge {
     font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 2px 8px; border-radius: 20px;
+    padding: 3px 9px; border-radius: 20px;
     background: $blue-100; color: $blue-600;
 }
-.mb-header-right { display: flex; align-items: center; gap: 6px; }
-.mb-unsaved-dot { width: 6px; height: 6px; border-radius: 50%; background: $amber-500; }
+.mb-header-right { display: flex; align-items: center; gap: 8px; }
+.mb-unsaved-dot { width: 6px; height: 6px; border-radius: 50%; background: $amber-500; animation: mb-pulse 2s ease-in-out infinite; }
 .mb-unsaved-label { font-size: 11px; color: $amber-500; font-weight: 500; }
 .mb-type-badge {
     font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-    padding: 2px 8px; border-radius: 20px;
+    padding: 3px 9px; border-radius: 20px;
     background: $gray-100; color: $gray-600;
 }
 
 /* ═══════════ PREVIEW MODE ═══════════ */
-.mb-header--preview { border-bottom: none; padding-bottom: 0; }
 .mb-preview-body {
-    padding: 16px 20px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.mb-pv-card {
-    background: var(--mb-card-bg);
-    border: 1px solid var(--mb-border);
-    border-radius: $radius-sm;
-    overflow: hidden;
-}
-.mb-pv-card-header {
-    display: flex; align-items: center; gap: 6px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--mb-border);
-}
-.mb-pv-card-icon { width: 14px; height: 14px; color: var(--mb-muted); flex-shrink: 0; }
-.mb-pv-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--mb-muted); }
-.mb-pv-card-count {
-    font-size: 10px; font-weight: 700;
-    background: var(--mb-accent); color: #fff;
-    padding: 1px 7px; border-radius: 10px; margin-left: auto;
-}
-
-.mb-pv-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-}
-.mb-pv-cell {
-    display: flex; flex-direction: column; gap: 3px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--mb-border);
-    border-right: 1px solid var(--mb-border);
-    &:nth-child(2n) { border-right: none; }
-    &:nth-last-child(-n+2) { border-bottom: none; }
-    &:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: none; }
-}
-.mb-pv-label {
-    font-size: 10px; font-weight: 600; color: var(--mb-muted);
-    text-transform: uppercase; letter-spacing: 0.3px;
-}
-.mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; font-weight: 500; }
-.mb-pv-link {
-    color: var(--mb-accent); text-decoration: none; font-weight: 500;
-    &:hover { text-decoration: underline; }
-}
-
-.mb-pv-lines { display: flex; flex-direction: column; }
-.mb-pv-line {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--mb-border);
-    flex-wrap: wrap;
-    &:last-child { border-bottom: none; }
-}
-.mb-pv-line-idx {
-    font-size: 10px; font-weight: 700; color: var(--mb-muted);
-    width: 18px; text-align: center; flex-shrink: 0;
-}
-.mb-pv-line-img { width: 38px; height: 38px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
-.mb-pv-line-img-ph {
-    width: 38px; height: 38px; border-radius: $radius-xs; background: $gray-100;
-    display: flex; align-items: center; justify-content: center; color: $gray-300; flex-shrink: 0;
-}
-.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 100px; }
-.mb-pv-line-model { font-weight: 600; font-size: 12px; color: var(--mb-text); }
-.mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
-.mb-pv-line-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
-.mb-pv-tag {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.2px;
-    padding: 2px 7px; border-radius: 4px;
-    background: $gray-100; color: $gray-600; font-family: monospace;
-    &--qty { background: $blue-50; color: $blue-600; font-family: inherit; }
-    &--cust { background: $amber-50; color: $amber-500; font-family: inherit; }
-}
-.mb-pv-line-remarks {
-    width: 100%; padding-left: 66px;
-    font-size: 11px; color: $gray-500; font-style: italic;
-}
-
-.mb-pv-remarks-text { padding: 12px 14px; margin: 0; font-size: 13px; color: var(--mb-text); line-height: 1.5; }
-
-.mb-pv-card--history .mb-pv-card-header { border-bottom: none; }
-.mb-pv-timeline { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 0; position: relative; }
-.mb-pv-tl-item {
-    display: flex; gap: 10px; padding: 6px 0;
-    position: relative;
-}
-.mb-pv-tl-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--mb-accent); flex-shrink: 0; margin-top: 4px;
-    position: relative; z-index: 1;
-}
-.mb-pv-tl-item:not(:last-child) .mb-pv-tl-dot::after {
-    content: '';
-    position: absolute; left: 3px; top: 8px;
-    width: 2px; height: calc(100% + 4px);
-    background: var(--mb-border);
-}
-.mb-pv-tl-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.mb-pv-tl-action {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
-    color: var(--mb-accent);
-}
-.mb-pv-tl-desc { font-size: 12px; color: var(--mb-text); line-height: 1.4; word-break: break-word; }
-
-/* ═══════════ BODY ═══════════ */
-.mb-body {
-    padding: 20px;
+    padding: 22px;
     display: flex;
     flex-direction: column;
     gap: 18px;
+    overflow-y: auto;
+    flex: 1;
+}
+.mb-pv-row {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid $gray-100;
+    &:last-of-type { border-bottom: none; }
+}
+.mb-pv-label {
+    font-size: 11px; font-weight: 600; color: var(--mb-muted);
+    text-transform: uppercase; letter-spacing: 0.4px;
+    min-width: 120px; padding-top: 2px; flex-shrink: 0;
+}
+.mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; line-height: 1.45; }
+.mb-pv-link { color: var(--mb-accent); word-break: break-all; text-decoration: none; &:hover { text-decoration: underline; } }
+.mb-pv-section {
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 4px;
+}
+.mb-pv-section .mb-pv-label { margin-bottom: 2px; padding: 0; border: none; }
+.mb-pv-lines { display: flex; flex-direction: column; gap: 8px; }
+.mb-pv-line {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--mb-form-bg);
+    border: 1px solid var(--mb-border);
+    border-radius: $radius-sm;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: border-color $transition, box-shadow $transition;
+    &:hover { border-color: $gray-300; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); }
+}
+.mb-pv-line-img { width: 44px; height: 44px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
+.mb-pv-line-img-ph { width: 44px; height: 44px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
+.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mb-pv-line-model { font-weight: 600; font-size: 13px; color: var(--mb-text); }
+.mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
+.mb-pv-line-sku { font-size: 10px; color: var(--mb-muted); font-family: monospace; }
+.mb-pv-line-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--mb-muted); text-align: right; white-space: nowrap; }
+.mb-pv-line-remarks { font-size: 11px; color: $gray-500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.mb-pv-history { display: flex; flex-direction: column; gap: 6px; }
+.mb-pv-history-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px;
+    background: var(--mb-form-bg);
+    border: 1px solid var(--mb-border);
+    border-radius: $radius-sm;
+    font-size: 12px;
+    border-left: 3px solid var(--mb-accent);
+}
+.mb-pv-history-action {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--mb-accent); white-space: nowrap; padding-top: 1px; flex-shrink: 0;
+}
+.mb-pv-history-desc { color: var(--mb-text); word-break: break-word; line-height: 1.4; }
+
+/* ═══════════ BODY ═══════════ */
+.mb-body {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
     overflow-y: auto;
     flex: 1;
     &.is-disabled { opacity: 0.6; pointer-events: none; }
@@ -1165,7 +1076,7 @@ $transition: 0.15s ease;
 .mb-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     &.has-error .mb-input { border-color: $red-500; }
 }
 .mb-label {
@@ -1173,13 +1084,13 @@ $transition: 0.15s ease;
     font-weight: 600;
     color: var(--mb-text);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.35px;
 }
 .mb-req { color: $red-500; }
 .mb-error { font-size: 11px; color: $red-500; font-weight: 500; }
 .mb-input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 9px 13px;
     border: 1px solid var(--mb-border);
     border-radius: $radius-sm;
     font-family: inherit;
@@ -1189,11 +1100,11 @@ $transition: 0.15s ease;
     outline: none;
     transition: border-color $transition, box-shadow $transition;
     box-sizing: border-box;
-    &:focus { border-color: var(--mb-accent); box-shadow: 0 0 0 3px rgba($blue-500, 0.1); }
+    &:focus { border-color: var(--mb-accent); box-shadow: 0 0 0 3px rgba($blue-500, 0.12); }
     &::placeholder { color: var(--mb-muted); }
     &:disabled { background: $gray-100; cursor: not-allowed; }
 }
-.mb-textarea { resize: vertical; min-height: 60px; }
+.mb-textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
 .mb-char-count { font-size: 10px; color: var(--mb-muted); text-align: right; }
 
 /* Toggle group */
@@ -1274,23 +1185,27 @@ $transition: 0.15s ease;
     background: var(--mb-card-bg);
     border: 1px solid var(--mb-border);
     border-radius: $radius-sm;
-    padding: 16px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .mb-section-header { display: flex; align-items: center; justify-content: space-between; }
-.mb-section-title { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin: 0; color: var(--mb-text); }
-.mb-section-icon { width: 16px; height: 16px; color: var(--mb-muted); }
+.mb-section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin: 0; color: var(--mb-text); }
+.mb-section-icon { width: 16px; height: 16px; color: var(--mb-accent); }
 .mb-section-count { font-size: 11px; color: var(--mb-muted); font-weight: 500; }
 
 .mb-products-empty {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 24px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 28px 20px;
     color: var(--mb-muted);
-    p { margin: 0; font-size: 12px; }
+    background: var(--mb-form-bg);
+    border-radius: $radius-sm;
+    border: 1px dashed var(--mb-border);
+    p { margin: 0; font-size: 12px; font-weight: 500; }
 }
-.mb-empty-icon { width: 32px; height: 32px; color: $gray-300; }
+.mb-empty-icon { width: 36px; height: 36px; color: $gray-300; }
 
 /* ═══════════ LINE ITEMS ═══════════ */
 .mb-lines { display: flex; flex-direction: column; gap: 8px; }
@@ -1298,14 +1213,15 @@ $transition: 0.15s ease;
     background: var(--mb-form-bg);
     border: 1px solid var(--mb-border);
     border-radius: $radius-sm;
-    padding: 12px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     transition: border-color $transition, box-shadow $transition, opacity $transition;
-    &:hover { border-color: $gray-300; }
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    &:hover { border-color: $gray-300; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05); }
     &.is-dragging { opacity: 0.5; }
-    &.is-drag-over { border-color: var(--mb-accent); box-shadow: 0 0 0 2px rgba($blue-500, 0.15); }
+    &.is-drag-over { border-color: var(--mb-accent); box-shadow: 0 0 0 2px rgba($blue-500, 0.2); }
 }
 .mb-line-top {
     display: flex; align-items: center; gap: 8px;
@@ -1365,18 +1281,18 @@ $transition: 0.15s ease;
 
 /* Add SKU button */
 .mb-add-sku-btn {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px;
     border: 1px dashed var(--mb-border);
     border-radius: $radius-sm;
-    background: none;
+    background: var(--mb-form-bg);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
     color: var(--mb-accent);
     cursor: pointer;
     transition: all $transition;
-    &:hover { background: $blue-50; border-color: var(--mb-accent); }
+    &:hover { background: $blue-50; border-color: var(--mb-accent); border-style: solid; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
@@ -1402,15 +1318,15 @@ $transition: 0.15s ease;
 /* ═══════════ FOOTER ═══════════ */
 .mb-footer {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px;
+    padding: 16px 22px;
     border-top: 1px solid var(--mb-border);
     background: var(--mb-card-bg);
 }
 .mb-footer-left { flex: 1; }
 .mb-footer-error { font-size: 12px; color: $red-500; font-weight: 500; }
-.mb-footer-right { display: flex; gap: 8px; }
+.mb-footer-right { display: flex; gap: 10px; }
 .mb-btn {
-    padding: 8px 18px;
+    padding: 9px 20px;
     border: none;
     border-radius: var(--mb-btn-radius);
     font-family: inherit;
@@ -1418,13 +1334,13 @@ $transition: 0.15s ease;
     font-weight: 600;
     cursor: pointer;
     transition: all $transition;
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; gap: 8px;
     &:disabled { opacity: 0.45; cursor: not-allowed; }
     &--secondary {
         background: var(--mb-form-bg);
         color: var(--mb-text);
         border: 1px solid var(--mb-border);
-        &:hover:not(:disabled) { background: $gray-100; }
+        &:hover:not(:disabled) { background: $gray-100; border-color: $gray-300; }
     }
     &--primary {
         background: var(--mb-btn-bg);
@@ -1447,28 +1363,29 @@ $transition: 0.15s ease;
 /* ═══════════ SUCCESS OVERLAY ═══════════ */
 .mb-success-overlay {
     position: absolute; inset: 0;
-    background: rgba(255,255,255,0.85);
+    background: rgba(255, 255, 255, 0.9);
     display: flex; align-items: center; justify-content: center;
     z-index: 60;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
 }
 .mb-success-card {
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    padding: 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 36px 40px;
     background: var(--mb-form-bg);
     border-radius: var(--mb-radius);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--mb-border);
 }
-.mb-success-icon { width: 48px; height: 48px; color: $green-600; }
-.mb-success-text { font-size: 14px; font-weight: 600; color: var(--mb-text); margin: 0; }
+.mb-success-icon { width: 52px; height: 52px; color: $green-600; }
+.mb-success-text { font-size: 15px; font-weight: 600; color: var(--mb-text); margin: 0; }
 
 /* ═══════════ TOAST ═══════════ */
 .mb-toast {
-    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-    padding: 8px 18px;
-    border-radius: 20px;
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 24px;
     font-size: 12px; font-weight: 500;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     z-index: 70;
     white-space: nowrap;
     &--info { background: $gray-900; color: #fff; }

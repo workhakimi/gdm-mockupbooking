@@ -115,9 +115,9 @@
                 <span v-if="touched.client && !form.client" class="mb-error">Client is required</span>
             </div>
 
-            <!-- ROW: Mockup Folder -->
-            <div class="mb-field" v-if="form.type === 'mockup'">
-                <label class="mb-label">Mockup Reference Folder</label>
+            <!-- ROW: Folder -->
+            <div class="mb-field">
+                <label class="mb-label">{{ form.type === 'mockup' ? 'Mockup Reference Folder' : 'Request Folder' }}</label>
                 <input
                     type="text"
                     class="mb-input"
@@ -146,8 +146,26 @@
 
                 <!-- Line items -->
                 <div v-else class="mb-lines">
-                    <div v-for="(line, idx) in form.lineItems" :key="line._uid" class="mb-line-card">
+                    <div
+                        v-for="(line, idx) in form.lineItems"
+                        :key="line._uid"
+                        class="mb-line-card"
+                        :class="{ 'is-dragging': draggedLineIndex === idx, 'is-drag-over': dragOverIndex === idx }"
+                        @dragover.prevent="onLineDragOver($event, idx)"
+                        @dragleave="onLineDragLeave"
+                        @drop.prevent="onLineDrop($event, idx)"
+                    >
                         <div class="mb-line-top">
+                            <span
+                                class="mb-line-drag-handle"
+                                draggable="true"
+                                :class="{ 'is-disabled': isFormDisabled }"
+                                @dragstart="onLineDragStart($event, idx)"
+                                @dragend="onLineDragEnd"
+                                title="Drag to reorder"
+                            >
+                                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M3 4h2v2H3V4zm4 0h2v2H7V4zm4 0h2v2h-2V4zM3 7h2v2H3V7zm4 0h2v2H7V7zm4 0h2v2h-2V7zM3 10h2v2H3v-2zm4 0h2v2H7v-2zm4 0h2v2h-2v-2z"/></svg>
+                            </span>
                             <span class="mb-line-number">#{{ idx + 1 }}</span>
                             <button type="button" class="mb-line-remove" :disabled="isFormDisabled" @click="removeLine(idx)" title="Remove item">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -256,12 +274,12 @@
                 <span v-if="touched.lines && form.lineItems.length === 0" class="mb-error">At least one product is required</span>
             </div>
 
-            <!-- ROW: Additional Remarks -->
+            <!-- ROW: Remarks -->
             <div class="mb-field">
-                <label class="mb-label">Additional Remarks</label>
+                <label class="mb-label">{{ form.type === 'mockup' ? 'Additional Remarks' : 'Request Remarks' }}</label>
                 <textarea
                     class="mb-input mb-textarea"
-                    placeholder="Any additional notes..."
+                    :placeholder="form.type === 'mockup' ? 'Any additional notes...' : 'Describe your request...'"
                     :value="form.additionalRemarks"
                     :disabled="isFormDisabled"
                     @input="form.additionalRemarks = $event.target.value"
@@ -295,6 +313,44 @@
                 <span v-else-if="isUrgent" class="mb-urgent-hint">Deadline is within 24 hours</span>
             </div>
         </div>
+
+        <!-- ═══════════ REVIEW PANEL (inline, above footer) ═══════════ -->
+        <transition name="mb-review-expand">
+            <div v-if="showReview" class="mb-review-panel">
+                <div class="mb-review-header">
+                    <h3 class="mb-review-title">Review Your Request</h3>
+                    <button type="button" class="mb-review-close" @click="showReview = false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="mb-review-body">
+                    <div class="mb-review-row"><span class="mb-review-label">Title</span><span class="mb-review-value">{{ form.title }}</span></div>
+                    <div class="mb-review-row"><span class="mb-review-label">Type</span><span class="mb-review-value">{{ form.type }}</span></div>
+                    <div class="mb-review-row"><span class="mb-review-label">Requestor</span><span class="mb-review-value">{{ selectedTeammate?.name || '-' }}</span></div>
+                    <div class="mb-review-row"><span class="mb-review-label">Client</span><span class="mb-review-value">{{ form.client }}</span></div>
+                    <div v-if="form.mockup_folder" class="mb-review-row"><span class="mb-review-label">{{ form.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-review-value mb-review-link">{{ form.mockup_folder }}</span></div>
+                    <div v-if="form.type === 'mockup'" class="mb-review-row mb-review-row--block">
+                        <span class="mb-review-label">Products ({{ form.lineItems.length }})</span>
+                        <div class="mb-review-lines">
+                            <div v-for="(line, i) in form.lineItems" :key="line._uid" class="mb-review-line">
+                                <span class="mb-review-line-num">{{ i + 1 }}.</span>
+                                <span class="mb-review-line-sku">{{ line.sku }}</span>
+                                <span class="mb-review-line-detail">Qty: {{ line.quantity }} · {{ line.customization_type || 'None' }}</span>
+                                <span v-if="line.remarks" class="mb-review-line-remarks">{{ line.remarks }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="form.additionalRemarks" class="mb-review-row"><span class="mb-review-label">{{ form.type === 'mockup' ? 'Additional Remarks' : 'Request Remarks' }}</span><span class="mb-review-value">{{ form.additionalRemarks }}</span></div>
+                    <div class="mb-review-row">
+                        <span class="mb-review-label">Deadline</span>
+                        <span class="mb-review-value">
+                            {{ form.deadlineDate }} {{ form.deadlineTime || '00:00' }}
+                            <span v-if="isUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </transition>
 
         <!-- ═══════════ FOOTER ═══════════ -->
         <div class="mb-footer">
@@ -331,44 +387,6 @@
                 </button>
             </div>
         </div>
-
-        <!-- ═══════════ REVIEW PANEL ═══════════ -->
-        <transition name="mb-slide-up">
-            <div v-if="showReview" class="mb-review-panel">
-                <div class="mb-review-header">
-                    <h3 class="mb-review-title">Review Your Request</h3>
-                    <button type="button" class="mb-review-close" @click="showReview = false">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-                <div class="mb-review-body">
-                    <div class="mb-review-row"><span class="mb-review-label">Title</span><span class="mb-review-value">{{ form.title }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Type</span><span class="mb-review-value">{{ form.type }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Requestor</span><span class="mb-review-value">{{ selectedTeammate?.name || '-' }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Client</span><span class="mb-review-value">{{ form.client }}</span></div>
-                    <div v-if="form.type === 'mockup' && form.mockup_folder" class="mb-review-row"><span class="mb-review-label">Mockup Folder</span><span class="mb-review-value mb-review-link">{{ form.mockup_folder }}</span></div>
-                    <div v-if="form.type === 'mockup'" class="mb-review-row mb-review-row--block">
-                        <span class="mb-review-label">Products ({{ form.lineItems.length }})</span>
-                        <div class="mb-review-lines">
-                            <div v-for="(line, i) in form.lineItems" :key="line._uid" class="mb-review-line">
-                                <span class="mb-review-line-num">{{ i + 1 }}.</span>
-                                <span class="mb-review-line-sku">{{ line.sku }}</span>
-                                <span class="mb-review-line-detail">Qty: {{ line.quantity }} · {{ line.customization_type || 'None' }}</span>
-                                <span v-if="line.remarks" class="mb-review-line-remarks">{{ line.remarks }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-if="form.additionalRemarks" class="mb-review-row"><span class="mb-review-label">Remarks</span><span class="mb-review-value">{{ form.additionalRemarks }}</span></div>
-                    <div class="mb-review-row">
-                        <span class="mb-review-label">Deadline</span>
-                        <span class="mb-review-value">
-                            {{ form.deadlineDate }} {{ form.deadlineTime || '00:00' }}
-                            <span v-if="isUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </transition>
 
         <!-- ═══════════ TOAST ═══════════ -->
         <transition name="mb-toast">
@@ -442,6 +460,8 @@ export default {
             originalSnapshot: null,
             toast: { visible: false, message: '', type: 'info' },
             skuInputRefs: {},
+            draggedLineIndex: null,
+            dragOverIndex: null,
             _toastTimer: null,
             _initDone: false,
         };
@@ -654,6 +674,35 @@ export default {
             const uid = this.form.lineItems[idx]?._uid;
             this.form.lineItems.splice(idx, 1);
             if (uid) delete this.skuInputRefs[uid];
+        },
+        onLineDragStart(e, idx) {
+            if (this.isFormDisabled) return;
+            this.draggedLineIndex = idx;
+            e.dataTransfer.setData('text/plain', String(idx));
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.dropEffect = 'move';
+        },
+        onLineDragEnd() {
+            this.draggedLineIndex = null;
+            this.dragOverIndex = null;
+        },
+        onLineDragOver(e, idx) {
+            e.preventDefault();
+            if (this.draggedLineIndex === null || this.draggedLineIndex === idx) return;
+            this.dragOverIndex = idx;
+        },
+        onLineDragLeave() {
+            this.dragOverIndex = null;
+        },
+        onLineDrop(e, dropIdx) {
+            e.preventDefault();
+            this.dragOverIndex = null;
+            const dragIdx = this.draggedLineIndex;
+            if (dragIdx == null || dragIdx === dropIdx) return;
+            const item = this.form.lineItems.splice(dragIdx, 1)[0];
+            const insertIdx = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
+            this.form.lineItems.splice(insertIdx, 0, item);
+            this.draggedLineIndex = null;
         },
         reopenSkuSearch(idx) {
             const line = this.form.lineItems[idx];
@@ -997,7 +1046,7 @@ $transition: 0.15s ease;
 /* SKU dropdown */
 .mb-dropdown--sku { max-height: 280px; }
 .mb-dropdown-item--sku { gap: 10px; }
-.mb-dd-img { width: 36px; height: 36px; object-fit: cover; border-radius: $radius-xs; border: 1px solid $gray-200; }
+.mb-dd-img { width: 36px; height: 36px; object-fit: cover; border-radius: $radius-xs; }
 .mb-dd-img-ph { width: 36px; height: 36px; border-radius: $radius-xs; background: $gray-100; }
 .mb-dd-details { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .mb-dd-model { font-weight: 500; font-size: 12px; color: var(--mb-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1039,13 +1088,27 @@ $transition: 0.15s ease;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: border-color $transition;
+    transition: border-color $transition, box-shadow $transition, opacity $transition;
     &:hover { border-color: $gray-300; }
+    &.is-dragging { opacity: 0.5; }
+    &.is-drag-over { border-color: var(--mb-accent); box-shadow: 0 0 0 2px rgba($blue-500, 0.15); }
 }
 .mb-line-top {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; gap: 8px;
 }
-.mb-line-number { font-size: 10px; font-weight: 700; color: var(--mb-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.mb-line-drag-handle {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+    color: $gray-400;
+    cursor: grab;
+    border-radius: $radius-xs;
+    flex-shrink: 0;
+    transition: color $transition, background $transition;
+    &:hover:not(.is-disabled) { color: var(--mb-accent); background: $blue-50; }
+    &:active:not(.is-disabled) { cursor: grabbing; }
+    &.is-disabled { cursor: not-allowed; opacity: 0.5; }
+}
+.mb-line-number { font-size: 10px; font-weight: 700; color: var(--mb-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-right: auto; }
 .mb-line-remove {
     display: flex; align-items: center; justify-content: center;
     width: 26px; height: 26px; border: none; background: none;
@@ -1057,7 +1120,7 @@ $transition: 0.15s ease;
 .mb-line-product {
     display: flex; align-items: center; gap: 10px;
 }
-.mb-line-img { width: 44px; height: 44px; object-fit: cover; border-radius: $radius-xs; border: 1px solid $gray-200; }
+.mb-line-img { width: 44px; height: 44px; object-fit: cover; border-radius: $radius-xs; }
 .mb-line-img-ph { width: 44px; height: 44px; border-radius: $radius-xs; background: $gray-100; display: flex; align-items: center; justify-content: center; color: $gray-300; }
 .mb-line-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .mb-line-model { font-weight: 600; font-size: 12px; color: var(--mb-text); }
@@ -1167,23 +1230,15 @@ $transition: 0.15s ease;
 
 /* ═══════════ REVIEW PANEL ═══════════ */
 .mb-review-panel {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    background: var(--mb-form-bg);
+    background: var(--mb-card-bg);
     border-top: 1px solid var(--mb-border);
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.08);
-    border-radius: var(--mb-radius) var(--mb-radius) 0 0;
-    z-index: 40;
-    max-height: 60%;
-    overflow-y: auto;
+    overflow: hidden;
 }
 .mb-review-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 20px;
     border-bottom: 1px solid var(--mb-border);
-    position: sticky; top: 0;
-    background: var(--mb-form-bg);
-    z-index: 1;
+    background: var(--mb-card-bg);
 }
 .mb-review-title { font-size: 14px; font-weight: 600; margin: 0; }
 .mb-review-close {
@@ -1247,8 +1302,15 @@ $transition: 0.15s ease;
 .mb-dropdown-enter-active, .mb-dropdown-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
 .mb-dropdown-enter-from, .mb-dropdown-leave-to { opacity: 0; transform: translateY(-4px); }
 
-.mb-slide-up-enter-active, .mb-slide-up-leave-active { transition: transform 0.2s ease, opacity 0.2s ease; }
-.mb-slide-up-enter-from, .mb-slide-up-leave-to { transform: translateY(100%); opacity: 0; }
+.mb-review-expand-enter-active, .mb-review-expand-leave-active {
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    max-height: 500px;
+    overflow: hidden;
+}
+.mb-review-expand-enter-from, .mb-review-expand-leave-to {
+    max-height: 0;
+    opacity: 0;
+}
 
 .mb-overlay-fade-enter-active, .mb-overlay-fade-leave-active { transition: opacity 0.3s ease; }
 .mb-overlay-fade-enter-from, .mb-overlay-fade-leave-to { opacity: 0; }

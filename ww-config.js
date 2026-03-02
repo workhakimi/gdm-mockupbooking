@@ -137,7 +137,7 @@ export default {
             /* wwEditor:start */
             bindingValidation: {
                 type: 'object',
-                tooltip: 'Existing mockup_requests row for edit mode. null = create mode. Shape: { id, created_at, title, type, pic_id, mockup_details, mockup_folder, history, client, user_deadline }',
+                tooltip: 'Single mockup_requests row or array (e.g. selectedRows). If array, first item is used. Enables preview mode. Shape: { id, created_at, title, type, pic_id, mockup_details, mockup_folder, history, client, user_deadline }',
             },
             /* wwEditor:end */
         },

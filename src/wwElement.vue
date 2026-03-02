@@ -522,7 +522,11 @@ export default {
             return [{ label: 'None', value: 'None' }];
         },
         editingData() {
-            return this.content?.editingData || null;
+            const raw = this.content?.editingData;
+            if (!raw) return null;
+            if (Array.isArray(raw) && raw.length > 0) return raw[0];
+            if (raw && typeof raw === 'object' && raw.id) return raw;
+            return null;
         },
         isEditMode() {
             return !!this.editingData?.id;

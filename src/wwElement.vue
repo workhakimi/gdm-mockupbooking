@@ -10,6 +10,75 @@
             </div>
         </transition>
 
+        <!-- ═══════════ PREVIEW MODE ═══════════ -->
+        <template v-if="viewMode === 'preview' && editingData">
+            <div class="mb-header">
+                <div class="mb-header-left">
+                    <h2 class="mb-title">{{ editingData.title || 'Mockup Request' }}</h2>
+                    <span class="mb-type-badge">{{ editingData.type || 'mockup' }}</span>
+                </div>
+                <div class="mb-header-right">
+                    <button type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                    </button>
+                </div>
+            </div>
+            <div class="mb-preview-body">
+                <div class="mb-pv-row"><span class="mb-pv-label">Client</span><span class="mb-pv-value">{{ editingData.client || '-' }}</span></div>
+                <div class="mb-pv-row"><span class="mb-pv-label">Requestor</span><span class="mb-pv-value">{{ previewTeammateName }}</span></div>
+                <div class="mb-pv-row"><span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-pv-value mb-pv-link">{{ editingData.mockup_folder || '-' }}</span></div>
+                <div class="mb-pv-row">
+                    <span class="mb-pv-label">Deadline</span>
+                    <span class="mb-pv-value">
+                        {{ previewDeadline }}
+                        <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
+                    </span>
+                </div>
+
+                <!-- Products (mockup only) -->
+                <div v-if="editingData.type === 'mockup' && previewDetails.length" class="mb-pv-section">
+                    <span class="mb-pv-label">Products ({{ previewDetails.length }})</span>
+                    <div class="mb-pv-lines">
+                        <div v-for="(item, i) in previewDetails" :key="i" class="mb-pv-line">
+                            <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
+                            <div v-else class="mb-pv-line-img-ph"></div>
+                            <div class="mb-pv-line-info">
+                                <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
+                                <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
+                                <span class="mb-pv-line-sku">{{ item.sku }}</span>
+                            </div>
+                            <div class="mb-pv-line-meta">
+                                <span>Qty: {{ item.quantity }}</span>
+                                <span>{{ item.customization_type || 'None' }}</span>
+                            </div>
+                            <span v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Remarks (custom) -->
+                <div v-if="editingData.type === 'custom' && editingData.additional_remarks" class="mb-pv-row">
+                    <span class="mb-pv-label">Request Remarks</span>
+                    <span class="mb-pv-value">{{ editingData.additional_remarks }}</span>
+                </div>
+
+                <!-- History -->
+                <div v-if="previewHistory.length" class="mb-pv-section">
+                    <span class="mb-pv-label">History ({{ previewHistory.length }})</span>
+                    <div class="mb-pv-history">
+                        <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-history-item">
+                            <span class="mb-pv-history-action">{{ entry.action }}</span>
+                            <span class="mb-pv-history-desc">{{ entry.description }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- ═══════════ FORM MODE ═══════════ -->
+        <template v-else>
+
         <!-- ═══════════ HEADER ═══════════ -->
         <div class="mb-header">
             <div class="mb-header-left">
@@ -340,6 +409,8 @@
             </div>
         </div>
 
+        </template><!-- end form mode -->
+
         <!-- ═══════════ TOAST ═══════════ -->
         <transition name="mb-toast">
             <div v-if="toast.visible" class="mb-toast" :class="'mb-toast--' + toast.type">
@@ -407,6 +478,7 @@ export default {
                 lines: false,
                 deadline: false,
             },
+            viewMode: 'form',
             submitPhase: 'idle',
             originalSnapshot: null,
             toast: { visible: false, message: '', type: 'info' },
@@ -493,12 +565,42 @@ export default {
         isFormDisabled() {
             return this.submitPhase === 'attempting' || this.submitPhase === 'succeeded';
         },
+        previewTeammateName() {
+            if (!this.editingData?.pic_id) return '-';
+            const tm = this.teammates.find(t => t.id === this.editingData.pic_id);
+            return tm ? `${tm.name} (${tm.type})` : this.editingData.pic_id;
+        },
+        previewDeadline() {
+            if (!this.editingData?.user_deadline) return '-';
+            try {
+                const d = new Date(this.editingData.user_deadline);
+                return d.toLocaleString('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+            } catch { return this.editingData.user_deadline; }
+        },
+        previewIsUrgent() {
+            if (!this.editingData?.user_deadline) return false;
+            const deadline = new Date(this.editingData.user_deadline);
+            const diffMs = deadline.getTime() - Date.now();
+            return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+        },
+        previewDetails() {
+            const details = Array.isArray(this.editingData?.mockup_details) ? this.editingData.mockup_details : [];
+            return details.map(d => {
+                const inv = this.inventory.find(i => i.sku === d.sku);
+                return { ...d, _model: inv?.model || '', _color: inv?.color || '', _size: inv?.size || '', _imagelink: inv?.imagelink || '' };
+            });
+        },
+        previewHistory() {
+            return Array.isArray(this.editingData?.history) ? this.editingData.history : [];
+        },
     },
     watch: {
         editingData: {
             handler(val) {
                 if (val?.id) {
-                    this.loadEditingData(val);
+                    this.viewMode = 'preview';
+                } else {
+                    this.viewMode = 'form';
                 }
             },
             immediate: true,
@@ -556,7 +658,11 @@ export default {
             this.originalSnapshot = JSON.stringify(this.formSnapshot());
         },
 
-        /* ── Edit mode loading ── */
+        /* ── Edit mode ── */
+        enterEditMode() {
+            this.loadEditingData(this.editingData);
+            this.viewMode = 'form';
+        },
         loadEditingData(data) {
             this.form.title = data.title || '';
             this.form.type = data.type || 'mockup';
@@ -781,6 +887,9 @@ export default {
 
         /* ── Form reset ── */
         resetForm() {
+            if (this.editingData?.id) {
+                this.viewMode = 'preview';
+            }
             this.form = {
                 title: '',
                 type: 'mockup',
@@ -879,6 +988,59 @@ $transition: 0.15s ease;
 .mb-header-right { display: flex; align-items: center; gap: 6px; }
 .mb-unsaved-dot { width: 6px; height: 6px; border-radius: 50%; background: $amber-500; }
 .mb-unsaved-label { font-size: 11px; color: $amber-500; font-weight: 500; }
+.mb-type-badge {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 8px; border-radius: 20px;
+    background: $gray-100; color: $gray-600;
+}
+
+/* ═══════════ PREVIEW MODE ═══════════ */
+.mb-preview-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    flex: 1;
+}
+.mb-pv-row { display: flex; align-items: flex-start; gap: 12px; }
+.mb-pv-label {
+    font-size: 11px; font-weight: 600; color: var(--mb-muted);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    min-width: 110px; padding-top: 2px; flex-shrink: 0;
+}
+.mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; }
+.mb-pv-link { color: var(--mb-accent); word-break: break-all; }
+.mb-pv-section { display: flex; flex-direction: column; gap: 8px; }
+.mb-pv-lines { display: flex; flex-direction: column; gap: 6px; }
+.mb-pv-line {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    background: var(--mb-card-bg);
+    border: 1px solid var(--mb-border);
+    border-radius: $radius-sm;
+}
+.mb-pv-line-img { width: 40px; height: 40px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
+.mb-pv-line-img-ph { width: 40px; height: 40px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
+.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mb-pv-line-model { font-weight: 600; font-size: 12px; color: var(--mb-text); }
+.mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
+.mb-pv-line-sku { font-size: 10px; color: var(--mb-muted); font-family: monospace; }
+.mb-pv-line-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--mb-muted); text-align: right; white-space: nowrap; }
+.mb-pv-line-remarks { font-size: 11px; color: $gray-500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.mb-pv-history { display: flex; flex-direction: column; gap: 4px; }
+.mb-pv-history-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 10px;
+    background: var(--mb-card-bg);
+    border-radius: $radius-xs;
+    font-size: 12px;
+}
+.mb-pv-history-action {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--mb-accent); white-space: nowrap; padding-top: 1px;
+}
+.mb-pv-history-desc { color: var(--mb-text); word-break: break-word; }
 
 /* ═══════════ BODY ═══════════ */
 .mb-body {

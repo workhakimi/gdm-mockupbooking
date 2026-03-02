@@ -12,10 +12,12 @@
 
         <!-- ═══════════ PREVIEW MODE ═══════════ -->
         <template v-if="viewMode === 'preview' && editingData">
-            <div class="mb-header">
+            <!-- Preview header -->
+            <div class="mb-header mb-header--preview">
                 <div class="mb-header-left">
                     <h2 class="mb-title">{{ editingData.title || 'Mockup Request' }}</h2>
                     <span class="mb-type-badge">{{ editingData.type || 'mockup' }}</span>
+                    <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
                 </div>
                 <div class="mb-header-right">
                     <button type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
@@ -24,52 +26,85 @@
                     </button>
                 </div>
             </div>
-            <div class="mb-preview-body">
-                <div class="mb-pv-row"><span class="mb-pv-label">Client</span><span class="mb-pv-value">{{ editingData.client || '-' }}</span></div>
-                <div class="mb-pv-row"><span class="mb-pv-label">Requestor</span><span class="mb-pv-value">{{ previewTeammateName }}</span></div>
-                <div class="mb-pv-row"><span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-pv-value mb-pv-link">{{ editingData.mockup_folder || '-' }}</span></div>
-                <div class="mb-pv-row">
-                    <span class="mb-pv-label">Deadline</span>
-                    <span class="mb-pv-value">
-                        {{ previewDeadline }}
-                        <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
-                    </span>
-                </div>
 
-                <!-- Products (mockup only) -->
-                <div v-if="editingData.type === 'mockup' && previewDetails.length" class="mb-pv-section">
-                    <span class="mb-pv-label">Products ({{ previewDetails.length }})</span>
-                    <div class="mb-pv-lines">
-                        <div v-for="(item, i) in previewDetails" :key="i" class="mb-pv-line">
-                            <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
-                            <div v-else class="mb-pv-line-img-ph"></div>
-                            <div class="mb-pv-line-info">
-                                <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
-                                <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
-                                <span class="mb-pv-line-sku">{{ item.sku }}</span>
-                            </div>
-                            <div class="mb-pv-line-meta">
-                                <span>Qty: {{ item.quantity }}</span>
-                                <span>{{ item.customization_type || 'None' }}</span>
-                            </div>
-                            <span v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</span>
+            <div class="mb-preview-body">
+                <!-- Details card -->
+                <div class="mb-pv-card">
+                    <div class="mb-pv-card-header">
+                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <span class="mb-pv-card-title">Details</span>
+                    </div>
+                    <div class="mb-pv-grid">
+                        <div class="mb-pv-cell">
+                            <span class="mb-pv-label">Client</span>
+                            <span class="mb-pv-value">{{ editingData.client || '-' }}</span>
+                        </div>
+                        <div class="mb-pv-cell">
+                            <span class="mb-pv-label">Requestor</span>
+                            <span class="mb-pv-value">{{ previewTeammateName }}</span>
+                        </div>
+                        <div class="mb-pv-cell">
+                            <span class="mb-pv-label">Deadline</span>
+                            <span class="mb-pv-value">{{ previewDeadline }}</span>
+                        </div>
+                        <div class="mb-pv-cell" v-if="editingData.mockup_folder">
+                            <span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span>
+                            <a :href="editingData.mockup_folder" target="_blank" rel="noopener" class="mb-pv-value mb-pv-link">{{ previewFolderDisplay }}</a>
                         </div>
                     </div>
                 </div>
 
-                <!-- Remarks (custom) -->
-                <div v-if="editingData.type === 'custom' && editingData.additional_remarks" class="mb-pv-row">
-                    <span class="mb-pv-label">Request Remarks</span>
-                    <span class="mb-pv-value">{{ editingData.additional_remarks }}</span>
+                <!-- Products card (mockup only) -->
+                <div v-if="editingData.type === 'mockup' && previewDetails.length" class="mb-pv-card">
+                    <div class="mb-pv-card-header">
+                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        <span class="mb-pv-card-title">Products</span>
+                        <span class="mb-pv-card-count">{{ previewDetails.length }}</span>
+                    </div>
+                    <div class="mb-pv-lines">
+                        <div v-for="(item, i) in previewDetails" :key="i" class="mb-pv-line">
+                            <span class="mb-pv-line-idx">{{ i + 1 }}</span>
+                            <img v-if="item._imagelink" :src="item._imagelink" :alt="item.sku" class="mb-pv-line-img" />
+                            <div v-else class="mb-pv-line-img-ph">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            </div>
+                            <div class="mb-pv-line-info">
+                                <span class="mb-pv-line-model">{{ item._model || item.sku }}</span>
+                                <span class="mb-pv-line-variant">{{ [item._color, item._size].filter(Boolean).join(' · ') }}</span>
+                            </div>
+                            <div class="mb-pv-line-tags">
+                                <span class="mb-pv-tag">{{ item.sku }}</span>
+                                <span class="mb-pv-tag mb-pv-tag--qty">x{{ item.quantity }}</span>
+                                <span v-if="item.customization_type && item.customization_type !== 'None'" class="mb-pv-tag mb-pv-tag--cust">{{ item.customization_type }}</span>
+                            </div>
+                            <div v-if="item.remarks" class="mb-pv-line-remarks">{{ item.remarks }}</div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- History -->
-                <div v-if="previewHistory.length" class="mb-pv-section">
-                    <span class="mb-pv-label">History ({{ previewHistory.length }})</span>
-                    <div class="mb-pv-history">
-                        <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-history-item">
-                            <span class="mb-pv-history-action">{{ entry.action }}</span>
-                            <span class="mb-pv-history-desc">{{ entry.description }}</span>
+                <!-- Remarks card (custom type) -->
+                <div v-if="editingData.type === 'custom' && editingData.additional_remarks" class="mb-pv-card">
+                    <div class="mb-pv-card-header">
+                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span class="mb-pv-card-title">Request Remarks</span>
+                    </div>
+                    <p class="mb-pv-remarks-text">{{ editingData.additional_remarks }}</p>
+                </div>
+
+                <!-- History card -->
+                <div v-if="previewHistory.length" class="mb-pv-card mb-pv-card--history">
+                    <div class="mb-pv-card-header">
+                        <svg class="mb-pv-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span class="mb-pv-card-title">History</span>
+                        <span class="mb-pv-card-count">{{ previewHistory.length }}</span>
+                    </div>
+                    <div class="mb-pv-timeline">
+                        <div v-for="(entry, i) in previewHistory" :key="i" class="mb-pv-tl-item">
+                            <div class="mb-pv-tl-dot"></div>
+                            <div class="mb-pv-tl-content">
+                                <span class="mb-pv-tl-action">{{ entry.action?.replace(/_/g, ' ') }}</span>
+                                <span class="mb-pv-tl-desc">{{ entry.description }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -597,6 +632,10 @@ export default {
         previewHistory() {
             return Array.isArray(this.editingData?.history) ? this.editingData.history : [];
         },
+        previewFolderDisplay() {
+            const url = this.editingData?.mockup_folder || '';
+            try { return new URL(url).hostname + '/...'; } catch { return url.length > 40 ? url.slice(0, 40) + '...' : url; }
+        },
     },
     watch: {
         editingData: {
@@ -999,52 +1038,117 @@ $transition: 0.15s ease;
 }
 
 /* ═══════════ PREVIEW MODE ═══════════ */
+.mb-header--preview { border-bottom: none; padding-bottom: 0; }
 .mb-preview-body {
-    padding: 20px;
+    padding: 16px 20px 20px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     overflow-y: auto;
     flex: 1;
 }
-.mb-pv-row { display: flex; align-items: flex-start; gap: 12px; }
-.mb-pv-label {
-    font-size: 11px; font-weight: 600; color: var(--mb-muted);
-    text-transform: uppercase; letter-spacing: 0.3px;
-    min-width: 110px; padding-top: 2px; flex-shrink: 0;
-}
-.mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; }
-.mb-pv-link { color: var(--mb-accent); word-break: break-all; }
-.mb-pv-section { display: flex; flex-direction: column; gap: 8px; }
-.mb-pv-lines { display: flex; flex-direction: column; gap: 6px; }
-.mb-pv-line {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 12px;
+
+.mb-pv-card {
     background: var(--mb-card-bg);
     border: 1px solid var(--mb-border);
     border-radius: $radius-sm;
+    overflow: hidden;
 }
-.mb-pv-line-img { width: 40px; height: 40px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
-.mb-pv-line-img-ph { width: 40px; height: 40px; border-radius: $radius-xs; background: $gray-100; flex-shrink: 0; }
-.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mb-pv-card-header {
+    display: flex; align-items: center; gap: 6px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mb-border);
+}
+.mb-pv-card-icon { width: 14px; height: 14px; color: var(--mb-muted); flex-shrink: 0; }
+.mb-pv-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--mb-muted); }
+.mb-pv-card-count {
+    font-size: 10px; font-weight: 700;
+    background: var(--mb-accent); color: #fff;
+    padding: 1px 7px; border-radius: 10px; margin-left: auto;
+}
+
+.mb-pv-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+.mb-pv-cell {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mb-border);
+    border-right: 1px solid var(--mb-border);
+    &:nth-child(2n) { border-right: none; }
+    &:nth-last-child(-n+2) { border-bottom: none; }
+    &:last-child:nth-child(odd) { grid-column: 1 / -1; border-right: none; }
+}
+.mb-pv-label {
+    font-size: 10px; font-weight: 600; color: var(--mb-muted);
+    text-transform: uppercase; letter-spacing: 0.3px;
+}
+.mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; font-weight: 500; }
+.mb-pv-link {
+    color: var(--mb-accent); text-decoration: none; font-weight: 500;
+    &:hover { text-decoration: underline; }
+}
+
+.mb-pv-lines { display: flex; flex-direction: column; }
+.mb-pv-line {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mb-border);
+    flex-wrap: wrap;
+    &:last-child { border-bottom: none; }
+}
+.mb-pv-line-idx {
+    font-size: 10px; font-weight: 700; color: var(--mb-muted);
+    width: 18px; text-align: center; flex-shrink: 0;
+}
+.mb-pv-line-img { width: 38px; height: 38px; object-fit: cover; border-radius: $radius-xs; flex-shrink: 0; }
+.mb-pv-line-img-ph {
+    width: 38px; height: 38px; border-radius: $radius-xs; background: $gray-100;
+    display: flex; align-items: center; justify-content: center; color: $gray-300; flex-shrink: 0;
+}
+.mb-pv-line-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 100px; }
 .mb-pv-line-model { font-weight: 600; font-size: 12px; color: var(--mb-text); }
 .mb-pv-line-variant { font-size: 11px; color: var(--mb-muted); }
-.mb-pv-line-sku { font-size: 10px; color: var(--mb-muted); font-family: monospace; }
-.mb-pv-line-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--mb-muted); text-align: right; white-space: nowrap; }
-.mb-pv-line-remarks { font-size: 11px; color: $gray-500; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
-.mb-pv-history { display: flex; flex-direction: column; gap: 4px; }
-.mb-pv-history-item {
-    display: flex; align-items: flex-start; gap: 8px;
-    padding: 6px 10px;
-    background: var(--mb-card-bg);
-    border-radius: $radius-xs;
-    font-size: 12px;
+.mb-pv-line-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.mb-pv-tag {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.2px;
+    padding: 2px 7px; border-radius: 4px;
+    background: $gray-100; color: $gray-600; font-family: monospace;
+    &--qty { background: $blue-50; color: $blue-600; font-family: inherit; }
+    &--cust { background: $amber-50; color: $amber-500; font-family: inherit; }
 }
-.mb-pv-history-action {
-    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
-    color: var(--mb-accent); white-space: nowrap; padding-top: 1px;
+.mb-pv-line-remarks {
+    width: 100%; padding-left: 66px;
+    font-size: 11px; color: $gray-500; font-style: italic;
 }
-.mb-pv-history-desc { color: var(--mb-text); word-break: break-word; }
+
+.mb-pv-remarks-text { padding: 12px 14px; margin: 0; font-size: 13px; color: var(--mb-text); line-height: 1.5; }
+
+.mb-pv-card--history .mb-pv-card-header { border-bottom: none; }
+.mb-pv-timeline { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 0; position: relative; }
+.mb-pv-tl-item {
+    display: flex; gap: 10px; padding: 6px 0;
+    position: relative;
+}
+.mb-pv-tl-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mb-accent); flex-shrink: 0; margin-top: 4px;
+    position: relative; z-index: 1;
+}
+.mb-pv-tl-item:not(:last-child) .mb-pv-tl-dot::after {
+    content: '';
+    position: absolute; left: 3px; top: 8px;
+    width: 2px; height: calc(100% + 4px);
+    background: var(--mb-border);
+}
+.mb-pv-tl-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.mb-pv-tl-action {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--mb-accent);
+}
+.mb-pv-tl-desc { font-size: 12px; color: var(--mb-text); line-height: 1.4; word-break: break-word; }
 
 /* ═══════════ BODY ═══════════ */
 .mb-body {

@@ -314,44 +314,6 @@
             </div>
         </div>
 
-        <!-- ═══════════ REVIEW PANEL (inline, above footer) ═══════════ -->
-        <transition name="mb-review-expand">
-            <div v-if="showReview" class="mb-review-panel">
-                <div class="mb-review-header">
-                    <h3 class="mb-review-title">Review Your Request</h3>
-                    <button type="button" class="mb-review-close" @click="showReview = false">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-                <div class="mb-review-body">
-                    <div class="mb-review-row"><span class="mb-review-label">Title</span><span class="mb-review-value">{{ form.title }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Type</span><span class="mb-review-value">{{ form.type }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Requestor</span><span class="mb-review-value">{{ selectedTeammate?.name || '-' }}</span></div>
-                    <div class="mb-review-row"><span class="mb-review-label">Client</span><span class="mb-review-value">{{ form.client }}</span></div>
-                    <div v-if="form.mockup_folder" class="mb-review-row"><span class="mb-review-label">{{ form.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-review-value mb-review-link">{{ form.mockup_folder }}</span></div>
-                    <div v-if="form.type === 'mockup'" class="mb-review-row mb-review-row--block">
-                        <span class="mb-review-label">Products ({{ form.lineItems.length }})</span>
-                        <div class="mb-review-lines">
-                            <div v-for="(line, i) in form.lineItems" :key="line._uid" class="mb-review-line">
-                                <span class="mb-review-line-num">{{ i + 1 }}.</span>
-                                <span class="mb-review-line-sku">{{ line.sku }}</span>
-                                <span class="mb-review-line-detail">Qty: {{ line.quantity }} · {{ line.customization_type || 'None' }}</span>
-                                <span v-if="line.remarks" class="mb-review-line-remarks">{{ line.remarks }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-if="form.additionalRemarks" class="mb-review-row"><span class="mb-review-label">{{ form.type === 'mockup' ? 'Additional Remarks' : 'Request Remarks' }}</span><span class="mb-review-value">{{ form.additionalRemarks }}</span></div>
-                    <div class="mb-review-row">
-                        <span class="mb-review-label">Deadline</span>
-                        <span class="mb-review-value">
-                            {{ form.deadlineDate }} {{ form.deadlineTime || '00:00' }}
-                            <span v-if="isUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </transition>
-
         <!-- ═══════════ FOOTER ═══════════ -->
         <div class="mb-footer">
             <div class="mb-footer-left">
@@ -364,26 +326,16 @@
                     :disabled="isFormDisabled"
                     @click="resetForm"
                 >Cancel</button>
-
-                <!-- Review step -->
                 <button
-                    v-if="!showReview"
                     type="button"
                     class="mb-btn mb-btn--primary"
                     :disabled="isFormDisabled || !isFormValid"
-                    @click="openReview"
-                >Review &amp; Submit</button>
-                <button
-                    v-else
-                    type="button"
-                    class="mb-btn mb-btn--primary mb-btn--submit"
-                    :disabled="isFormDisabled"
                     @click="doSubmit"
                 >
                     <template v-if="submitPhase === 'attempting'">
                         <span class="mb-spinner"></span> Submitting...
                     </template>
-                    <template v-else>Confirm Submit</template>
+                    <template v-else>Submit</template>
                 </button>
             </div>
         </div>
@@ -455,7 +407,6 @@ export default {
                 lines: false,
                 deadline: false,
             },
-            showReview: false,
             submitPhase: 'idle',
             originalSnapshot: null,
             toast: { visible: false, message: '', type: 'info' },
@@ -738,16 +689,11 @@ export default {
                 return hay.includes(q);
             }).slice(0, 40);
         },
-        /* ── Review & Submit ── */
-        openReview() {
-            this.touched = { title: true, pic: true, client: true, lines: true, deadline: true };
-            if (!this.isFormValid) return;
-            this.showReview = true;
-        },
+        /* ── Submit ── */
         doSubmit() {
+            this.touched = { title: true, pic: true, client: true, lines: true, deadline: true };
             if (!this.isFormValid || this.submitPhase === 'attempting') return;
             this.submitPhase = 'attempting';
-            this.showReview = false;
 
             const now = klNow();
             const isEdit = this.isEditMode;
@@ -849,7 +795,6 @@ export default {
             this.picSearch = '';
             this.picDropdownOpen = false;
             this.touched = { title: false, pic: false, client: false, lines: false, deadline: false };
-            this.showReview = false;
             this.submitPhase = 'idle';
             this.takeSnapshot();
         },
@@ -866,7 +811,6 @@ export default {
             if (e.key === 'Escape') {
                 this.picDropdownOpen = false;
                 this.form.lineItems.forEach(l => { l._dropdownOpen = false; });
-                if (this.showReview) this.showReview = false;
             }
         },
     },
@@ -1229,42 +1173,6 @@ $transition: 0.15s ease;
 @keyframes mb-spin { to { transform: rotate(360deg); } }
 
 /* ═══════════ REVIEW PANEL ═══════════ */
-.mb-review-panel {
-    background: var(--mb-card-bg);
-    border-top: 1px solid var(--mb-border);
-    overflow: hidden;
-}
-.mb-review-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--mb-border);
-    background: var(--mb-card-bg);
-}
-.mb-review-title { font-size: 14px; font-weight: 600; margin: 0; }
-.mb-review-close {
-    display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border: none; background: none;
-    color: $gray-400; cursor: pointer; border-radius: $radius-xs;
-    transition: all $transition;
-    &:hover { background: $gray-100; color: var(--mb-text); }
-}
-.mb-review-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-.mb-review-row { display: flex; align-items: flex-start; gap: 12px; &--block { flex-direction: column; } }
-.mb-review-label { font-size: 11px; font-weight: 600; color: var(--mb-muted); text-transform: uppercase; letter-spacing: 0.3px; min-width: 110px; padding-top: 2px; }
-.mb-review-value { font-size: 13px; color: var(--mb-text); word-break: break-word; }
-.mb-review-link { color: var(--mb-accent); word-break: break-all; }
-.mb-review-lines { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-.mb-review-line {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 10px;
-    background: var(--mb-card-bg);
-    border-radius: $radius-xs;
-    font-size: 12px;
-}
-.mb-review-line-num { font-weight: 700; color: var(--mb-muted); min-width: 18px; }
-.mb-review-line-sku { font-family: monospace; font-size: 11px; color: var(--mb-text); font-weight: 500; }
-.mb-review-line-detail { color: var(--mb-muted); font-size: 11px; }
-.mb-review-line-remarks { color: $gray-500; font-size: 11px; font-style: italic; margin-left: auto; }
 
 /* ═══════════ SUCCESS OVERLAY ═══════════ */
 .mb-success-overlay {
@@ -1301,16 +1209,6 @@ $transition: 0.15s ease;
 /* ═══════════ TRANSITIONS ═══════════ */
 .mb-dropdown-enter-active, .mb-dropdown-leave-active { transition: opacity 0.12s ease, transform 0.12s ease; }
 .mb-dropdown-enter-from, .mb-dropdown-leave-to { opacity: 0; transform: translateY(-4px); }
-
-.mb-review-expand-enter-active, .mb-review-expand-leave-active {
-    transition: max-height 0.25s ease, opacity 0.2s ease;
-    max-height: 500px;
-    overflow: hidden;
-}
-.mb-review-expand-enter-from, .mb-review-expand-leave-to {
-    max-height: 0;
-    opacity: 0;
-}
 
 .mb-overlay-fade-enter-active, .mb-overlay-fade-leave-active { transition: opacity 0.3s ease; }
 .mb-overlay-fade-enter-from, .mb-overlay-fade-leave-to { opacity: 0; }

@@ -18,10 +18,11 @@
                     <span class="mb-type-badge">{{ editingData.type || 'mockup' }}</span>
                 </div>
                 <div class="mb-header-right">
+                    <span v-if="isDesignerView" class="mb-status-chip">{{ displayStatus }}</span>
                     <button
                         v-if="isDesignerView"
                         type="button"
-                        class="mb-btn mb-btn--primary"
+                        class="mb-btn mb-btn--success"
                         :disabled="isStatusCompleted || submitPhase === 'attempting'"
                         @click="emitSetCompleted"
                     >
@@ -32,6 +33,15 @@
                     <button v-else type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
+                    </button>
+                    <button
+                        type="button"
+                        class="mb-btn"
+                        :class="removeConfirm ? 'mb-btn--confirm-remove' : 'mb-btn--danger'"
+                        :disabled="submitPhase === 'attempting'"
+                        @click="handleRemoveRequest"
+                    >
+                        {{ removeConfirm ? 'Confirm remove?' : 'Remove Request' }}
                     </button>
                 </div>
             </div>
@@ -512,6 +522,7 @@ export default {
             },
             viewMode: 'form',
             submitPhase: 'idle',
+            removeConfirm: false,
             originalSnapshot: null,
             toast: { visible: false, message: '', type: 'info' },
             skuInputRefs: {},
@@ -570,7 +581,12 @@ export default {
             return !!this.editingData?.id;
         },
         isStatusCompleted() {
-            return String(this.editingData?.status || '').toLowerCase() === 'completed';
+            const s = String(this.editingData?.status || '').toLowerCase();
+            return s === 'completed' || s === 'set_completed';
+        },
+        displayStatus() {
+            const raw = String(this.editingData?.status || 'pending').trim();
+            return raw ? raw.replace(/_/g, ' ').toUpperCase() : 'PENDING';
         },
         selectedTeammate() {
             if (!this.form.pic_id) return null;
@@ -666,6 +682,7 @@ export default {
     watch: {
         editingData: {
             handler(val) {
+                this.removeConfirm = false;
                 if (val?.id) {
                     this.viewMode = 'preview';
                 } else {
@@ -686,6 +703,12 @@ export default {
             } else if (val === 'failed') {
                 this.submitPhase = 'failed';
                 this.showToast('Submission failed. Please try again.', 'error');
+            }
+        },
+        'content.perspectiveView'() {
+            this.removeConfirm = false;
+            if (this.isDesignerView && this.editingData?.id) {
+                this.viewMode = 'preview';
             }
         },
     },
@@ -882,7 +905,7 @@ export default {
                 return hay.includes(q);
             }).slice(0, 40);
         },
-        emitSetCompleted() {
+        emitPreviewAction(action, description, infoMessage) {
             if (!this.editingData?.id || this.submitPhase === 'attempting') return;
             const now = klNow();
             this.submitPhase = 'attempting';
@@ -890,14 +913,14 @@ export default {
             const history = [
                 ...(Array.isArray(this.editingData.history) ? this.editingData.history : []),
                 {
-                    action: 'set_completed',
-                    description: 'Indicated as Completed by Designer',
+                    action,
+                    description,
                     timestamp: now,
                 },
             ];
 
             const payload = {
-                action: 'set_completed',
+                action,
                 id: this.editingData.id,
                 created_at: this.editingData.created_at || now,
                 updated_at: now,
@@ -916,9 +939,29 @@ export default {
             setTimeout(() => {
                 if (this.submitPhase === 'attempting') {
                     this.submitPhase = 'idle';
-                    this.showToast('Set completed emitted — waiting for workflow response', 'info');
+                    this.showToast(infoMessage, 'info');
                 }
             }, 8000);
+        },
+        emitSetCompleted() {
+            this.emitPreviewAction(
+                'set_completed',
+                'Indicated as Completed by Designer',
+                'Set completed emitted — waiting for workflow response'
+            );
+        },
+        handleRemoveRequest() {
+            if (this.submitPhase === 'attempting') return;
+            if (!this.removeConfirm) {
+                this.removeConfirm = true;
+                return;
+            }
+            this.removeConfirm = false;
+            this.emitPreviewAction(
+                'cancel_submission',
+                'Cancelled submission',
+                'Cancel submission emitted — waiting for workflow response'
+            );
         },
         /* ── Submit ── */
         doSubmit() {
@@ -1015,6 +1058,7 @@ export default {
             if (this.editingData?.id) {
                 this.viewMode = 'preview';
             }
+            this.removeConfirm = false;
             this.form = {
                 title: '',
                 type: 'mockup',
@@ -1045,6 +1089,7 @@ export default {
             if (e.key === 'Escape') {
                 this.picDropdownOpen = false;
                 this.form.lineItems.forEach(l => { l._dropdownOpen = false; });
+                this.removeConfirm = false;
             }
         },
     },
@@ -1112,6 +1157,17 @@ $transition: 0.15s ease;
     background: $blue-100; color: $blue-600;
 }
 .mb-header-right { display: flex; align-items: center; gap: 8px; }
+.mb-status-chip {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: $gray-100;
+    color: $gray-700;
+    border: 1px solid $gray-200;
+}
 .mb-unsaved-dot { width: 6px; height: 6px; border-radius: 50%; background: $amber-500; animation: mb-pulse 2s ease-in-out infinite; }
 .mb-unsaved-label { font-size: 11px; color: $amber-500; font-weight: 500; }
 .mb-type-badge {
@@ -1492,6 +1548,21 @@ $transition: 0.15s ease;
         background: var(--mb-btn-bg);
         color: var(--mb-btn-text);
         &:hover:not(:disabled) { background: var(--mb-btn-hover); }
+    }
+    &--success {
+        background: $green-600;
+        color: #fff;
+        &:hover:not(:disabled) { background: #047857; }
+    }
+    &--danger {
+        background: $red-500;
+        color: #fff;
+        &:hover:not(:disabled) { background: $red-600; }
+    }
+    &--confirm-remove {
+        background: $gray-900;
+        color: #fff;
+        &:hover:not(:disabled) { background: #000; }
     }
     &--submit { background: var(--mb-accent); &:hover:not(:disabled) { background: var(--mb-accent-hover); } }
 }

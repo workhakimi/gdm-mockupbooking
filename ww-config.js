@@ -65,7 +65,7 @@ export default {
             label: { en: 'On Action' },
             event: {
                 value: {
-                    action: '', // new_submission | edit_submission | set_completed
+                    action: '', // new_submission | edit_submission | set_completed | cancel_submission
                     id: null,
                     created_at: '',
                     updated_at: '',

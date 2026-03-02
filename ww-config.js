@@ -74,7 +74,7 @@ export default {
                     pic_id: '',
                     mockup_details: [],
                     mockup_folder: '',
-                    history: [],
+                    history: [], // [{ action, description, timestamp }] timestampz
                     client: '',
                     user_deadline: '',
                 },

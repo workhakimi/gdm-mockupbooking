@@ -833,8 +833,8 @@ export default {
                 : null;
 
             const history = isEdit
-                ? [...(this.editingData.history || []), { action: 'edited_submission', description: this.buildChangeDescription() }]
-                : [{ action: 'new_submission', description: 'Created new mockup request' }];
+                ? [...(this.editingData.history || []), { action: 'edited_submission', description: this.buildChangeDescription(), timestamp: now }]
+                : [{ action: 'new_submission', description: 'Created new mockup request', timestamp: now }];
 
             const payload = {
                 action,

@@ -19,7 +19,7 @@ export default {
             {
                 label: 'Editing Context',
                 isCollapsible: true,
-                properties: ['editingData', 'actionStatus'],
+                properties: ['perspectiveView', 'editingData', 'actionStatus'],
             },
         ],
         customStylePropertiesOrder: [
@@ -65,7 +65,7 @@ export default {
             label: { en: 'On Action' },
             event: {
                 value: {
-                    action: '',
+                    action: '', // new_submission | edit_submission | set_completed
                     id: null,
                     created_at: '',
                     updated_at: '',
@@ -151,6 +151,23 @@ export default {
             bindingValidation: {
                 type: 'string',
                 tooltip: 'Set to "successful" or "failed" after submission. Empty = idle.',
+            },
+            /* wwEditor:end */
+        },
+        perspectiveView: {
+            label: { en: 'Perspective View' },
+            type: 'TextSelect',
+            section: 'settings',
+            defaultValue: 'user',
+            options: {
+                options: [
+                    { value: 'user', label: 'User View' },
+                    { value: 'designer', label: 'Designer View' },
+                ],
+            },
+            /* wwEditor:start */
+            propertyHelp: {
+                tooltip: 'User View: current create/edit flow. Designer View: preview-only with "Set as Completed" action.',
             },
             /* wwEditor:end */
         },

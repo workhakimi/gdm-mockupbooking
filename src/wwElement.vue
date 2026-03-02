@@ -18,7 +18,18 @@
                     <span class="mb-type-badge">{{ editingData.type || 'mockup' }}</span>
                 </div>
                 <div class="mb-header-right">
-                    <button type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
+                    <button
+                        v-if="isDesignerView"
+                        type="button"
+                        class="mb-btn mb-btn--primary"
+                        :disabled="isStatusCompleted || submitPhase === 'attempting'"
+                        @click="emitSetCompleted"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 6L9 17l-5-5"/></svg>
+                        <template v-if="submitPhase === 'attempting'">Updating...</template>
+                        <template v-else>Set as Completed</template>
+                    </button>
+                    <button v-else type="button" class="mb-btn mb-btn--primary" @click="enterEditMode">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                     </button>
@@ -28,12 +39,25 @@
                 <div class="mb-pv-row"><span class="mb-pv-label">Title</span><span class="mb-pv-value mb-pv-title">{{ editingData.title || '-' }}</span></div>
                 <div class="mb-pv-row"><span class="mb-pv-label">Client</span><span class="mb-pv-value">{{ editingData.client || '-' }}</span></div>
                 <div class="mb-pv-row"><span class="mb-pv-label">Requestor</span><span class="mb-pv-value">{{ previewTeammateName }}</span></div>
-                <div class="mb-pv-row"><span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span><span class="mb-pv-value mb-pv-link">{{ editingData.mockup_folder || '-' }}</span></div>
+                <div class="mb-pv-row">
+                    <span class="mb-pv-label">{{ editingData.type === 'mockup' ? 'Mockup Folder' : 'Request Folder' }}</span>
+                    <a
+                        v-if="editingData.mockup_folder"
+                        class="mb-pv-value mb-pv-link"
+                        :href="editingData.mockup_folder"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ editingData.mockup_folder }}
+                    </a>
+                    <span v-else class="mb-pv-value">-</span>
+                </div>
                 <div class="mb-pv-row">
                     <span class="mb-pv-label">Deadline</span>
                     <span class="mb-pv-value">
                         {{ previewDeadline }}
-                        <span v-if="previewIsUrgent" class="mb-urgent-tag mb-urgent-tag--sm">URGENT</span>
+                        <span v-if="previewDeadlineRelative" class="mb-pv-deadline-meta">({{ previewDeadlineRelative }})</span>
+                        <span v-if="previewIsUrgent" class="mb-pv-deadline-urgent">(Urgent)</span>
                     </span>
                 </div>
 
@@ -536,8 +560,17 @@ export default {
             if (raw && typeof raw === 'object' && raw.id) return raw;
             return null;
         },
+        perspectiveView() {
+            return this.content?.perspectiveView === 'designer' ? 'designer' : 'user';
+        },
+        isDesignerView() {
+            return this.perspectiveView === 'designer';
+        },
         isEditMode() {
             return !!this.editingData?.id;
+        },
+        isStatusCompleted() {
+            return String(this.editingData?.status || '').toLowerCase() === 'completed';
         },
         selectedTeammate() {
             if (!this.form.pic_id) return null;
@@ -602,7 +635,22 @@ export default {
             if (!this.editingData?.user_deadline) return false;
             const deadline = new Date(this.editingData.user_deadline);
             const diffMs = deadline.getTime() - Date.now();
-            return diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+            return !this.isStatusCompleted && diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+        },
+        previewDeadlineRelative() {
+            if (!this.editingData?.user_deadline) return '';
+            const deadline = new Date(this.editingData.user_deadline);
+            const diffMs = deadline.getTime() - Date.now();
+            if (diffMs <= 0) return 'past due';
+
+            const totalMinutes = Math.floor(diffMs / 60000);
+            const days = Math.floor(totalMinutes / (24 * 60));
+            const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+            const minutes = totalMinutes % 60;
+
+            if (days > 0) return `in ${days}d ${hours}h${minutes}m`;
+            if (hours > 0) return `in ${hours}h${minutes}m`;
+            return `in ${minutes}m`;
         },
         previewDetails() {
             const details = Array.isArray(this.editingData?.mockup_details) ? this.editingData.mockup_details : [];
@@ -698,6 +746,7 @@ export default {
 
         /* ── Edit mode ── */
         enterEditMode() {
+            if (this.isDesignerView) return;
             this.loadEditingData(this.editingData);
             this.viewMode = 'form';
         },
@@ -832,6 +881,44 @@ export default {
                 const hay = `${item.model || ''} ${item.color || ''} ${item.sku || ''} ${item.type || ''} ${item.size || ''}`.toLowerCase();
                 return hay.includes(q);
             }).slice(0, 40);
+        },
+        emitSetCompleted() {
+            if (!this.editingData?.id || this.submitPhase === 'attempting') return;
+            const now = klNow();
+            this.submitPhase = 'attempting';
+
+            const history = [
+                ...(Array.isArray(this.editingData.history) ? this.editingData.history : []),
+                {
+                    action: 'set_completed',
+                    description: 'Indicated as Completed by Designer',
+                    timestamp: now,
+                },
+            ];
+
+            const payload = {
+                action: 'set_completed',
+                id: this.editingData.id,
+                created_at: this.editingData.created_at || now,
+                updated_at: now,
+                title: this.editingData.title || '',
+                type: this.editingData.type || 'mockup',
+                pic_id: this.editingData.pic_id || '',
+                mockup_details: Array.isArray(this.editingData.mockup_details) ? this.editingData.mockup_details : [],
+                mockup_folder: this.editingData.mockup_folder || '',
+                history,
+                client: this.editingData.client || '',
+                user_deadline: this.editingData.user_deadline || null,
+            };
+
+            this.$emit('trigger-event', { name: 'onAction', event: { value: payload } });
+
+            setTimeout(() => {
+                if (this.submitPhase === 'attempting') {
+                    this.submitPhase = 'idle';
+                    this.showToast('Set completed emitted — waiting for workflow response', 'info');
+                }
+            }, 8000);
         },
         /* ── Submit ── */
         doSubmit() {
@@ -1056,6 +1143,8 @@ $transition: 0.15s ease;
 .mb-pv-value { font-size: 13px; color: var(--mb-text); word-break: break-word; line-height: 1.45; }
 .mb-pv-title { font-weight: 600; font-size: 14px; }
 .mb-pv-link { color: var(--mb-accent); word-break: break-all; text-decoration: none; &:hover { text-decoration: underline; } }
+.mb-pv-deadline-meta { color: var(--mb-muted); margin-left: 6px; }
+.mb-pv-deadline-urgent { color: var(--mb-urgent); font-weight: 600; margin-left: 6px; }
 .mb-pv-section {
     display: flex; flex-direction: column; gap: 10px;
     padding-top: 4px;

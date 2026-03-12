@@ -32,6 +32,7 @@
                         v-for="seg in calSegments"
                         :key="seg.key"
                         class="mb-cal-bar"
+                        :class="{ 'mb-cal-bar--selected': editingData && seg.requestId === editingData.id }"
                         :style="calBarStyle(seg)"
                         :title="seg.tooltip"
                     >
@@ -846,7 +847,7 @@ export default {
                         key: `${req.id}-${wi}`,
                         requestId: req.id,
                         title: req.title || 'Request',
-                        tooltip: `${req.title || 'Request'}\n${(req.type || 'mockup').charAt(0).toUpperCase() + (req.type || 'mockup').slice(1)}${req.client ? ' · ' + req.client : ''}\n${startStr} → ${endStr}${isCompleted ? '\nCompleted' : ''}`,
+                        tooltip: `${req.title || 'Request'}\n${(req.type || 'mockup').charAt(0).toUpperCase() + (req.type || 'mockup').slice(1)}${req.client ? ' · ' + req.client : ''}${req.pic_id ? '\nRequester: ' + (this.teammates.find(t => t.id === req.pic_id)?.name || req.pic_id) : ''}\n${startStr} → ${endStr}${isCompleted ? '\nCompleted' : ''}`,
                         startCol: sp.min,
                         endCol: sp.max,
                         weekIndex: wi,
@@ -1970,6 +1971,11 @@ $transition: 0.15s ease;
     position: relative;
     z-index: 3;
     &:hover { filter: brightness(1.1); z-index: 10; }
+}
+.mb-cal-bar--selected {
+    outline: 2px solid var(--mb-text);
+    outline-offset: -1px;
+    z-index: 8;
 }
 .mb-cal-bar-title {
     flex: 1;

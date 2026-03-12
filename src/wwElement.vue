@@ -1,5 +1,47 @@
 <template>
     <div class="mb-root" :style="rootStyles">
+        <!-- ═══════════ CALENDAR VIEW ═══════════ -->
+        <div v-if="calendarEnabled" class="mb-cal">
+            <div class="mb-cal-header">
+                <button class="mb-cal-nav" @click="calPrevMonth">&lsaquo;</button>
+                <span class="mb-cal-month-label">{{ calMonthLabel }} {{ calYear }}</span>
+                <button class="mb-cal-nav" @click="calNextMonth">&rsaquo;</button>
+                <button class="mb-cal-nav mb-cal-today" @click="calGoToday">Today</button>
+            </div>
+            <div class="mb-cal-dow-row">
+                <div v-for="d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']" :key="d" class="mb-cal-dow-cell">{{ d }}</div>
+            </div>
+            <div class="mb-cal-grid" :style="calGridStyle">
+                <div
+                    v-for="day in calendarDays"
+                    :key="day.dateStr"
+                    class="mb-cal-day"
+                    :class="{
+                        'mb-cal-day--outside': day.outside,
+                        'mb-cal-day--weekend': day.isWeekend,
+                        'mb-cal-day--today': day.isToday,
+                    }"
+                >
+                    <div class="mb-cal-day-header">
+                        <span class="mb-cal-day-num">{{ day.dayNum }}</span>
+                        <span v-if="day.dayNum === 1 || day.idx === 0" class="mb-cal-day-month">{{ day.monthShort }}</span>
+                    </div>
+                </div>
+                <div class="mb-cal-bars-layer">
+                    <div
+                        v-for="seg in calSegments"
+                        :key="seg.key"
+                        class="mb-cal-bar"
+                        :class="{ 'mb-cal-bar--selected': seg.requestId === selectedRequestId }"
+                        :style="calBarStyle(seg)"
+                        @click.stop="selectRequest(seg.requestId)"
+                    >
+                        <span v-if="seg.showLabel" class="mb-cal-bar-title">{{ seg.title }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══════════ SUCCESS OVERLAY ═══════════ -->
         <transition name="mb-overlay-fade">
             <div v-if="submitPhase === 'succeeded'" class="mb-success-overlay">
@@ -489,6 +531,21 @@ function createEmptyLine() {
     };
 }
 
+// ─── CALENDAR HELPERS ───
+const CAL_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CAL_DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseDate(str) {
+    if (!str) return null;
+    const s = str.length > 10 ? str.substring(0, 10) : str;
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
 export default {
     props: {
         content: { type: Object, default: () => ({}) },
@@ -530,6 +587,10 @@ export default {
             dragOverIndex: null,
             _toastTimer: null,
             _initDone: false,
+            // Calendar state
+            calMonth: new Date().getMonth(),
+            calYear: new Date().getFullYear(),
+            selectedRequestId: null,
         };
     },
     computed: {
@@ -551,6 +612,8 @@ export default {
                 '--mb-radius': c.borderRadius || '10px',
                 '--mb-font': c.fontFamily || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 '--mb-font-size': c.fontSize || '13px',
+                '--mb-completed': c.completedColor || '#059669',
+                '--mb-cal-header-bg': c.calHeaderBgColor || '#111827',
             };
         },
         teammates() {
@@ -678,11 +741,160 @@ export default {
         previewHistory() {
             return Array.isArray(this.editingData?.history) ? this.editingData.history : [];
         },
+        // ─── CALENDAR COMPUTEDS ───
+        calendarEnabled() {
+            return this.content?.showCalendar === 'yes';
+        },
+        requestsList() {
+            const raw = this.content?.requestsData;
+            if (!Array.isArray(raw)) return [];
+            return raw.filter(r => r && r.id && r.created_at && r.user_deadline);
+        },
+        calMonthLabel() {
+            return CAL_MONTH_NAMES[this.calMonth];
+        },
+        calendarDays() {
+            const first = new Date(this.calYear, this.calMonth, 1);
+            const sd = (first.getDay() + 6) % 7;
+            const start = new Date(first); start.setDate(start.getDate() - sd);
+            const days = [];
+            const today = toDateStr(new Date());
+            for (let i = 0; i < 42; i++) {
+                const d = new Date(start); d.setDate(start.getDate() + i);
+                const ds = toDateStr(d), dow = d.getDay();
+                days.push({
+                    date: new Date(d), dateStr: ds, dayNum: d.getDate(),
+                    monthShort: CAL_MONTH_SHORT[d.getMonth()],
+                    isWeekend: dow === 0 || dow === 6,
+                    isToday: ds === today,
+                    outside: d.getMonth() !== this.calMonth,
+                    weekIndex: Math.floor(i / 7), dayIndex: i % 7, idx: i,
+                });
+            }
+            return days;
+        },
+        calSegments() {
+            const days = this.calendarDays;
+            const firstDate = days[0].dateStr, lastDate = days[41].dateStr;
+            const segs = [];
+            const wk = {}; // collision map: weekIndex -> [{ sc, ec, ri }]
+
+            for (const req of this.requestsList) {
+                const startStr = req.created_at.length > 10 ? req.created_at.substring(0, 10) : req.created_at;
+                const endStr = req.user_deadline.length > 10 ? req.user_deadline.substring(0, 10) : req.user_deadline;
+                // Skip if entirely outside visible range
+                if (endStr < firstDate || startStr > lastDate) continue;
+
+                // Find day indices that fall within [startStr, endStr]
+                const activeDays = [];
+                for (const day of days) {
+                    if (day.dateStr >= startStr && day.dateStr <= endStr) {
+                        activeDays.push(day);
+                    }
+                }
+                if (!activeDays.length) continue;
+
+                // Group by weekIndex
+                const weekSpans = {};
+                for (const day of activeDays) {
+                    const wi = day.weekIndex;
+                    if (!weekSpans[wi]) weekSpans[wi] = { min: day.dayIndex, max: day.dayIndex };
+                    else {
+                        weekSpans[wi].min = Math.min(weekSpans[wi].min, day.dayIndex);
+                        weekSpans[wi].max = Math.max(weekSpans[wi].max, day.dayIndex);
+                    }
+                }
+
+                // Find a row that doesn't collide in any of this request's weeks
+                const weekKeys = Object.keys(weekSpans).map(Number).sort((a, b) => a - b);
+                let ri = 0, found = false;
+                while (!found) {
+                    found = true;
+                    for (const wi of weekKeys) {
+                        const sp = weekSpans[wi];
+                        if (!wk[wi]) wk[wi] = [];
+                        if (wk[wi].some(r => r.ri === ri && !(sp.max < r.sc || sp.min > r.ec))) {
+                            found = false; break;
+                        }
+                    }
+                    if (!found) ri++;
+                }
+                // Reserve rows
+                for (const wi of weekKeys) {
+                    const sp = weekSpans[wi];
+                    if (!wk[wi]) wk[wi] = [];
+                    wk[wi].push({ sc: sp.min, ec: sp.max, ri });
+                }
+
+                // Determine bar color
+                const status = String(req.status || '').toLowerCase();
+                const isCompleted = status === 'completed' || status === 'set_completed';
+                let color;
+                if (isCompleted) {
+                    color = 'var(--mb-completed)';
+                } else {
+                    const deadline = new Date(req.user_deadline);
+                    const diffMs = deadline.getTime() - Date.now();
+                    const isUrgent = diffMs > 0 && diffMs <= 24 * 60 * 60 * 1000;
+                    color = isUrgent ? 'var(--mb-urgent)' : 'var(--mb-accent)';
+                }
+
+                // Emit segments per week
+                const isFirstWeek = weekKeys[0], isLastWeek = weekKeys[weekKeys.length - 1];
+                for (const wi of weekKeys) {
+                    const sp = weekSpans[wi];
+                    segs.push({
+                        key: `${req.id}-${wi}`,
+                        requestId: req.id,
+                        title: req.title || 'Request',
+                        startCol: sp.min,
+                        endCol: sp.max,
+                        weekIndex: wi,
+                        rowIndex: ri,
+                        color,
+                        isFirst: wi === isFirstWeek,
+                        isLast: wi === isLastWeek,
+                        showLabel: wi === isFirstWeek || sp.min === 0,
+                    });
+                }
+            }
+            return segs;
+        },
+        calWeekRowCounts() {
+            const counts = {};
+            for (const seg of this.calSegments) {
+                counts[seg.weekIndex] = Math.max(counts[seg.weekIndex] || 0, seg.rowIndex + 1);
+            }
+            return counts;
+        },
+        calWeekRowPx() {
+            const wc = this.calWeekRowCounts;
+            const rows = [];
+            for (let i = 0; i < 6; i++) {
+                const jobRows = wc[i] || 0;
+                rows.push(Math.max(56, 22 + jobRows * 20));
+            }
+            return rows;
+        },
+        calTotalGridHeight() {
+            return this.calWeekRowPx.reduce((s, h) => s + h, 0);
+        },
+        calWeekRowTops() {
+            const tops = [0];
+            for (let i = 0; i < this.calWeekRowPx.length - 1; i++) {
+                tops.push(tops[i] + this.calWeekRowPx[i]);
+            }
+            return tops;
+        },
+        calGridStyle() {
+            return { gridTemplateRows: this.calWeekRowPx.map(h => `${h}px`).join(' ') };
+        },
     },
     watch: {
         editingData: {
             handler(val) {
                 this.removeConfirm = false;
+                this.selectedRequestId = val?.id || null;
                 if (val?.id) {
                     this.viewMode = 'preview';
                 } else {
@@ -727,6 +939,38 @@ export default {
         if (this._toastTimer) clearTimeout(this._toastTimer);
     },
     methods: {
+        /* ── Calendar ── */
+        calPrevMonth() {
+            if (this.calMonth === 0) { this.calMonth = 11; this.calYear--; } else this.calMonth--;
+        },
+        calNextMonth() {
+            if (this.calMonth === 11) { this.calMonth = 0; this.calYear++; } else this.calMonth++;
+        },
+        calGoToday() {
+            const n = new Date(); this.calMonth = n.getMonth(); this.calYear = n.getFullYear();
+        },
+        calBarStyle(seg) {
+            const total = this.calTotalGridHeight || 1;
+            const rowTop = this.calWeekRowTops[seg.weekIndex] || 0;
+            const topPx = rowTop + 20 + seg.rowIndex * 20;
+            const colW = 100 / 7;
+            return {
+                position: 'absolute',
+                left: `${seg.startCol * colW}%`,
+                width: `${(seg.endCol - seg.startCol + 1) * colW}%`,
+                top: `${(topPx / total) * 100}%`,
+                height: '18px',
+                backgroundColor: seg.color,
+                borderRadius: `${seg.isFirst ? '3px' : '0'} ${seg.isLast ? '3px' : '0'} ${seg.isLast ? '3px' : '0'} ${seg.isFirst ? '3px' : '0'}`,
+            };
+        },
+        selectRequest(id) {
+            this.selectedRequestId = id;
+            this.$emit('trigger-event', {
+                name: 'onRequestSelect',
+                event: { value: { id } },
+            });
+        },
         /* ── Snapshots for dirty tracking ── */
         formSnapshot() {
             return {
@@ -1619,4 +1863,130 @@ $transition: 0.15s ease;
 
 .mb-toast-enter-active, .mb-toast-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .mb-toast-enter-from, .mb-toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+
+/* ═══════════ CALENDAR ═══════════ */
+.mb-cal {
+    border: 1px solid var(--mb-border);
+    border-radius: var(--mb-radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+.mb-cal-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background: var(--mb-cal-header-bg, #111827);
+    color: #fff;
+    user-select: none;
+}
+.mb-cal-month-label {
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 140px;
+    text-align: center;
+}
+.mb-cal-nav {
+    padding: 4px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: inherit;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.12s;
+    line-height: 1;
+    &:hover { background: rgba(255,255,255,0.18); }
+}
+.mb-cal-today {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 4px 8px;
+}
+.mb-cal-dow-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: var(--mb-card-bg, #f9fafb);
+    border-bottom: 1px solid var(--mb-border);
+}
+.mb-cal-dow-cell {
+    padding: 5px 0;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mb-muted);
+    text-align: center;
+}
+.mb-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    position: relative;
+    background: var(--mb-form-bg, #fff);
+}
+.mb-cal-day {
+    border-right: 1px solid var(--mb-border);
+    border-bottom: 1px solid var(--mb-border);
+    position: relative;
+    overflow: hidden;
+    &:nth-child(7n) { border-right: none; }
+}
+.mb-cal-day--outside { opacity: 0.25; }
+.mb-cal-day--weekend { background: var(--mb-card-bg, #f9fafb); }
+.mb-cal-day--today { background: rgba($blue-500, 0.06); }
+.mb-cal-day--today .mb-cal-day-num { color: var(--mb-accent); font-weight: 800; }
+.mb-cal-day-header {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    min-height: 18px;
+}
+.mb-cal-day-num {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mb-text);
+}
+.mb-cal-day-month {
+    font-size: 8px;
+    font-weight: 600;
+    color: var(--mb-muted);
+    text-transform: uppercase;
+}
+.mb-cal-bars-layer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+.mb-cal-bar {
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #fff;
+    pointer-events: all;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    transition: opacity 0.15s, filter 0.15s;
+    position: relative;
+    z-index: 3;
+    &:hover { filter: brightness(1.1); z-index: 10; }
+}
+.mb-cal-bar--selected {
+    outline: 2px solid var(--mb-text);
+    outline-offset: -1px;
+    z-index: 8;
+}
+.mb-cal-bar-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
 </style>

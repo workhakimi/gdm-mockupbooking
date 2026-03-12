@@ -17,6 +17,11 @@ export default {
                 properties: ['customizationOptions'],
             },
             {
+                label: 'Calendar',
+                isCollapsible: true,
+                properties: ['showCalendar', 'requestsData'],
+            },
+            {
                 label: 'Editing Context',
                 isCollapsible: true,
                 properties: ['perspectiveView', 'editingData', 'actionStatus'],
@@ -35,6 +40,8 @@ export default {
                     'urgentColor',
                     'textColor',
                     'mutedTextColor',
+                    'completedColor',
+                    'calHeaderBgColor',
                 ],
             },
             {
@@ -81,6 +88,11 @@ export default {
             },
             default: true,
         },
+        {
+            name: 'onRequestSelect',
+            label: { en: 'On Request Select' },
+            event: { value: { id: null } },
+        },
     ],
     properties: {
         teammatesData: {
@@ -125,6 +137,26 @@ export default {
             bindingValidation: {
                 type: 'array',
                 tooltip: 'Array of { label, value } for customization type dropdown.',
+            },
+            /* wwEditor:end */
+        },
+        showCalendar: {
+            label: { en: 'Show Calendar' },
+            type: 'TextSelect',
+            section: 'settings',
+            defaultValue: 'no',
+            options: { options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }] },
+        },
+        requestsData: {
+            label: { en: 'All Requests (Calendar)' },
+            type: 'ObjectList',
+            section: 'settings',
+            bindable: true,
+            defaultValue: [],
+            /* wwEditor:start */
+            bindingValidation: {
+                type: 'array',
+                tooltip: 'Array of mockup_requests for calendar: { id, created_at, title, type, status, user_deadline, client }',
             },
             /* wwEditor:end */
         },
@@ -180,6 +212,8 @@ export default {
         urgentColor: { label: { en: 'Urgent tag color' }, type: 'Color', section: 'style', defaultValue: '#ef4444' },
         textColor: { label: { en: 'Text color' }, type: 'Color', section: 'style', defaultValue: '#111827' },
         mutedTextColor: { label: { en: 'Muted text color' }, type: 'Color', section: 'style', defaultValue: '#6b7280' },
+        completedColor: { label: { en: 'Completed bar color' }, type: 'Color', section: 'style', defaultValue: '#059669' },
+        calHeaderBgColor: { label: { en: 'Calendar header BG' }, type: 'Color', section: 'style', defaultValue: '#111827' },
         btnBgColor: { label: { en: 'Button background' }, type: 'Color', section: 'style', defaultValue: '#111827' },
         btnTextColor: { label: { en: 'Button text' }, type: 'Color', section: 'style', defaultValue: '#ffffff' },
         btnHoverColor: { label: { en: 'Button hover' }, type: 'Color', section: 'style', defaultValue: '#1f2937' },

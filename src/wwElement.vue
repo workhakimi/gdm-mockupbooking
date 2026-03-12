@@ -32,9 +32,8 @@
                         v-for="seg in calSegments"
                         :key="seg.key"
                         class="mb-cal-bar"
-                        :class="{ 'mb-cal-bar--selected': seg.requestId === selectedRequestId }"
                         :style="calBarStyle(seg)"
-                        @click.stop="selectRequest(seg.requestId)"
+                        :title="seg.tooltip"
                     >
                         <span v-if="seg.showLabel" class="mb-cal-bar-title">{{ seg.title }}</span>
                     </div>
@@ -847,6 +846,7 @@ export default {
                         key: `${req.id}-${wi}`,
                         requestId: req.id,
                         title: req.title || 'Request',
+                        tooltip: `${req.title || 'Request'}\n${(req.type || 'mockup').charAt(0).toUpperCase() + (req.type || 'mockup').slice(1)}${req.client ? ' · ' + req.client : ''}\n${startStr} → ${endStr}${isCompleted ? '\nCompleted' : ''}`,
                         startCol: sp.min,
                         endCol: sp.max,
                         weekIndex: wi,
@@ -1962,19 +1962,14 @@ $transition: 0.15s ease;
     font-weight: 600;
     color: #fff;
     pointer-events: all;
-    cursor: pointer;
+    cursor: default;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    transition: opacity 0.15s, filter 0.15s;
+    transition: filter 0.15s;
     position: relative;
     z-index: 3;
     &:hover { filter: brightness(1.1); z-index: 10; }
-}
-.mb-cal-bar--selected {
-    outline: 2px solid var(--mb-text);
-    outline-offset: -1px;
-    z-index: 8;
 }
 .mb-cal-bar-title {
     flex: 1;

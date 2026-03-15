@@ -435,10 +435,11 @@
                     :placeholder="form.type === 'mockup' ? 'Any additional notes...' : 'Describe your request...'"
                     :value="form.additionalRemarks"
                     :disabled="isFormDisabled"
+                    maxlength="500"
                     @input="form.additionalRemarks = $event.target.value"
                     rows="3"
                 ></textarea>
-                <span class="mb-char-count">{{ (form.additionalRemarks || '').length }} / 500</span>
+                <span class="mb-char-count" :class="{ 'mb-char-count--near': (form.additionalRemarks || '').length >= 450 }">{{ (form.additionalRemarks || '').length }} / 500</span>
             </div>
 
             <!-- ROW: Deadline -->
@@ -506,16 +507,18 @@
 
 <script>
 function generateUid() {
-    return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
 }
 
 function klNow() {
-    return new Date().toLocaleString('en-CA', {
-        timeZone: 'Asia/Kuala_Lumpur',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false,
-    }).replace(',', '').replace(/(\d{4})-(\d{2})-(\d{2})\s/, '$1-$2-$3T') + '+08:00';
+    // Build KL time (UTC+8) as ISO 8601 string without locale dependency
+    const now = new Date();
+    const local = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    return local.toISOString().replace('Z', '+08:00');
 }
 
 function createEmptyLine() {
@@ -1211,7 +1214,14 @@ export default {
         /* ── Submit ── */
         doSubmit() {
             this.touched = { title: true, pic: true, client: true, lines: true, deadline: true };
-            if (!this.isFormValid || this.submitPhase === 'attempting') return;
+            if (!this.isFormValid || this.submitPhase === 'attempting') {
+                // Scroll to first field with an error
+                this.$nextTick(() => {
+                    const el = this.$el?.querySelector?.('.has-error');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                return;
+            }
             this.submitPhase = 'attempting';
 
             const now = klNow();
@@ -1335,6 +1345,10 @@ export default {
                 this.picDropdownOpen = false;
                 this.form.lineItems.forEach(l => { l._dropdownOpen = false; });
                 this.removeConfirm = false;
+                // If editing an existing record in form mode, ESC returns to preview
+                if (this.viewMode === 'form' && this.isEditMode) {
+                    this.resetForm();
+                }
             }
         },
     },
@@ -1551,6 +1565,7 @@ $transition: 0.15s ease;
 }
 .mb-textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
 .mb-char-count { font-size: 10px; color: var(--mb-muted); text-align: right; }
+.mb-char-count--near { color: #ea580c; font-weight: 600; }
 
 /* Toggle group */
 .mb-toggle-group { display: flex; gap: 0; }
